@@ -1,0 +1,29 @@
+{
+  "name": "grandir",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Grandir — auditoria financeira, conciliação de estoque e recuperação de reembolsos para sellers de marketplaces.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c green,cyan \"npm run dev -w @grandir/api\" \"npm run dev -w @grandir/web\"",
+    "dev:api": "npm run dev -w @grandir/api",
+    "dev:web": "npm run dev -w @grandir/web",
+    "seed": "npm run seed -w @grandir/api",
+    "build": "npm run build -w @grandir/web",
+    "test": "node --import tsx --test packages/engines/test/*.test.ts apps/api/test/*.test.ts",
+    "typecheck": "tsc -p packages/engines && tsc -p apps/api && tsc -p apps/web"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
