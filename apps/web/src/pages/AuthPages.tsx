@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, errorMessage } from '../api';
 import { useAuth } from '../auth';
-import { Logo } from '../ui';
+import { Arrow, Logo, Watermark } from '../ui';
 
 const PASSWORD_HINT = 'Mínimo de 12 caracteres, com maiúscula, minúscula, número e caractere especial.';
 
@@ -17,25 +17,18 @@ const REVENUE: [string, string][] = [
   ['5M_10M', 'R$ 5 a 10 milhões'], ['ACIMA_10M', 'Acima de R$ 10 milhões'],
 ];
 
-function AuthLayout({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
+/** Card único centralizado sobre fundo radial quente: entrar, recuperar e redefinir senha. */
+function CenterLayout({ title, lede, onSubmit, children }: { title: string; lede: string; onSubmit: (event: FormEvent) => void; children: ReactNode }) {
   return (
-    <div className="auth">
-      <aside className="auth-side">
-        <Logo />
-        <div>
-          <h2>Ative sua conta em três passos</h2>
-          <ol className="auth-steps">
-            <li><b>1</b><span>Crie sua conta com os dados da empresa.</span></li>
-            <li><b>2</b><span>Conecte sua primeira loja de marketplace.</span></li>
-            <li><b>3</b><span>A auditoria começa e as divergências aparecem no painel.</span></li>
-          </ol>
-        </div>
-        <p className="small" style={{ color: 'rgba(255,255,255,.55)' }}>Sem mensalidade. Você só paga sobre o que recuperar.</p>
-      </aside>
-      <main className="auth-main">
-        <div className={`auth-box ${narrow ? 'narrow' : ''}`}>{children}</div>
-      </main>
-    </div>
+    <main className="auth-center">
+      <Logo />
+      <form className="auth-card" onSubmit={onSubmit}>
+        <h1>{title}</h1>
+        <p className="lede">{lede}</p>
+        {children}
+      </form>
+      <p className="auth-foot">© {new Date().getFullYear()} Grandir. Todos os direitos reservados.</p>
+    </main>
   );
 }
 
@@ -72,37 +65,33 @@ export function Login() {
   };
 
   return (
-    <AuthLayout narrow>
-      <h1>Bem-vindo de volta</h1>
-      <p className="muted">Entre com seu e-mail e senha.</p>
-      <form className="card card-pad stack" onSubmit={submit}>
-        {error && <div className="alert error" role="alert">{error}</div>}
+    <CenterLayout title="Bem-vindo de volta!" lede="Entre com seu e-mail e senha" onSubmit={submit}>
+      {error && <div className="alert error" role="alert">{error}</div>}
+      <label className="field">
+        <span>E-mail</span>
+        <input className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>Senha</span>
+        <input className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+      </label>
+      {needsTotp && (
         <label className="field">
-          <span>E-mail</span>
-          <input className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <span>Código de verificação</span>
+          <input className="input num" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required autoFocus value={totp} onChange={(e) => setTotp(e.target.value)} />
+          <small>Abra seu aplicativo autenticador e digite o código de 6 dígitos.</small>
         </label>
-        <label className="field">
-          <span>Senha</span>
-          <input className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-        </label>
-        {needsTotp && (
-          <label className="field">
-            <span>Código de verificação</span>
-            <input className="input num" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} required autoFocus value={totp} onChange={(e) => setTotp(e.target.value)} />
-            <small>Abra seu aplicativo autenticador e digite o código de 6 dígitos.</small>
-          </label>
-        )}
-        <label className="check">
-          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-          <span>Manter conectado neste dispositivo</span>
-        </label>
-        <button className="btn block" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
-        <div className="row spread small">
-          <Link to="/recuperar-senha">Esqueci minha senha</Link>
-          <span className="muted">Não tem conta? <Link to="/criar-conta">Criar conta</Link></span>
-        </div>
-      </form>
-    </AuthLayout>
+      )}
+      <label className="check">
+        <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+        <span>Manter conectado neste dispositivo</span>
+      </label>
+      <button className="btn block" disabled={busy}>{busy ? 'Entrando…' : <>Entrar <Arrow /></>}</button>
+      <div className="links">
+        <Link to="/recuperar-senha">Esqueceu a senha?</Link>
+        <span>Ainda não tem conta? <Link to="/criar-conta">Criar conta</Link></span>
+      </div>
+    </CenterLayout>
   );
 }
 
@@ -139,51 +128,72 @@ export function Signup() {
   };
 
   return (
-    <AuthLayout>
-      <h1>Vamos começar</h1>
-      <p className="muted">Sem compromisso e sem mensalidade.</p>
-      <form className="card card-pad stack" onSubmit={submit}>
-        {error && <div className="alert error" role="alert">{error}</div>}
-        <div className="form-grid">
-          <label className="field"><span>Nome</span>
-            <input className="input" autoComplete="given-name" required value={form.firstName} onChange={set('firstName')} /></label>
-          <label className="field"><span>Sobrenome</span>
-            <input className="input" autoComplete="family-name" required value={form.lastName} onChange={set('lastName')} /></label>
-          <label className="field"><span>Celular</span>
-            <input className="input" type="tel" autoComplete="tel" required value={form.phone} onChange={set('phone')} /></label>
-          <label className="field"><span>Empresa</span>
-            <input className="input" autoComplete="organization" required value={form.companyName} onChange={set('companyName')} /></label>
-          <label className="field"><span>Você é uma agência?</span>
-            <select className="input" required value={form.isAgency} onChange={set('isAgency')}>
-              <option value="" disabled>Selecione</option><option value="sim">Sim</option><option value="nao">Não</option>
-            </select></label>
-          <label className="field"><span>País de atendimento</span>
-            <select className="input" required value={form.country} onChange={set('country')}>
-              {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-            </select></label>
-          <label className="field full"><span>Faturamento anual em fulfillment</span>
-            <select className="input" required value={form.revenueBand} onChange={set('revenueBand')}>
-              <option value="" disabled>Selecione</option>
-              {REVENUE.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-            </select></label>
-          <label className="field full"><span>E-mail</span>
-            <input className="input" type="email" autoComplete="username" required value={form.email} onChange={set('email')} /></label>
-          <label className="field"><span>Senha</span>
-            <input className="input" type="password" autoComplete="new-password" required minLength={12} value={form.password} onChange={set('password')} /></label>
-          <label className="field"><span>Confirmar senha</span>
-            <input className="input" type="password" autoComplete="new-password" required minLength={12} value={form.confirm} onChange={set('confirm')} /></label>
-          <small className="muted full">{PASSWORD_HINT}</small>
+    <div className="auth-split">
+      <aside className="auth-brand">
+        <Watermark />
+        <Logo />
+        <div>
+          <span className="eyebrow">Crie sua conta hoje</span>
+          <h2 className="display">Recupere o que é seu e volte a <span className="highlight">crescer.</span></h2>
         </div>
-        <label className="hp" aria-hidden="true">Site
-          <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} /></label>
-        <label className="check">
-          <input type="checkbox" required checked={form.acceptTerms} onChange={(e) => setForm((c) => ({ ...c, acceptTerms: e.target.checked }))} />
-          <span>Li e aceito os Termos de Serviço e a Política de Privacidade.</span>
-        </label>
-        <button className="btn block" disabled={busy}>{busy ? 'Criando conta…' : 'Criar conta e continuar'}</button>
-        <p className="small muted">Já tem conta? <Link to="/entrar">Entrar</Link></p>
-      </form>
-    </AuthLayout>
+        <div className="onboarding">
+          <h3>Ative sua conta em minutos</h3>
+          <ol className="auth-steps">
+            <li><span className="step-badge">1</span><span>Preencha o cadastro ao lado.</span></li>
+            <li><span className="step-badge">2</span><span>Conecte sua primeira loja de marketplace.</span></li>
+            <li><span className="step-badge">3</span><span>A auditoria começa e as divergências aparecem no painel.</span></li>
+          </ol>
+        </div>
+      </aside>
+
+      <main className="auth-form">
+        <form className="inner" onSubmit={submit}>
+          <div>
+            <h1>Vamos começar</h1>
+            <p>Sem compromisso. Sem mensalidade. Cancele quando quiser.</p>
+          </div>
+          {error && <div className="alert error" role="alert">{error}</div>}
+          <div className="form-grid">
+            <label className="field"><span>Nome</span>
+              <input className="input" autoComplete="given-name" required value={form.firstName} onChange={set('firstName')} /></label>
+            <label className="field"><span>Sobrenome</span>
+              <input className="input" autoComplete="family-name" required value={form.lastName} onChange={set('lastName')} /></label>
+            <label className="field"><span>Celular</span>
+              <input className="input" type="tel" autoComplete="tel" required value={form.phone} onChange={set('phone')} /></label>
+            <label className="field"><span>Empresa</span>
+              <input className="input" autoComplete="organization" required value={form.companyName} onChange={set('companyName')} /></label>
+            <label className="field"><span>Você é uma agência?</span>
+              <select className="input" required value={form.isAgency} onChange={set('isAgency')}>
+                <option value="" disabled>Selecione</option><option value="sim">Sim</option><option value="nao">Não</option>
+              </select></label>
+            <label className="field"><span>País de atendimento</span>
+              <select className="input" required value={form.country} onChange={set('country')}>
+                {COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+              </select></label>
+            <label className="field full"><span>E-mail</span>
+              <input className="input" type="email" autoComplete="username" required value={form.email} onChange={set('email')} /></label>
+            <label className="field"><span>Senha</span>
+              <input className="input" type="password" autoComplete="new-password" required minLength={12} value={form.password} onChange={set('password')} /></label>
+            <label className="field"><span>Confirmar senha</span>
+              <input className="input" type="password" autoComplete="new-password" required minLength={12} value={form.confirm} onChange={set('confirm')} /></label>
+            <small className="muted full">{PASSWORD_HINT}</small>
+            <label className="field full"><span>Faturamento anual em fulfillment</span>
+              <select className="input" required value={form.revenueBand} onChange={set('revenueBand')}>
+                <option value="" disabled>Selecione</option>
+                {REVENUE.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+              </select></label>
+          </div>
+          <label className="hp" aria-hidden="true">Site
+            <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} /></label>
+          <label className="check">
+            <input type="checkbox" required checked={form.acceptTerms} onChange={(e) => setForm((c) => ({ ...c, acceptTerms: e.target.checked }))} />
+            <span>Li e aceito os Termos de Serviço e a Política de Privacidade. <span style={{ color: 'var(--required)' }}>*</span></span>
+          </label>
+          <button className="btn square block" disabled={busy}>{busy ? 'Criando conta…' : 'Avançar'}</button>
+          <p className="small">Já tem conta? <Link to="/entrar">Entrar</Link></p>
+        </form>
+      </main>
+    </div>
   );
 }
 
@@ -208,23 +218,19 @@ export function ForgotPassword() {
   };
 
   return (
-    <AuthLayout narrow>
-      <h1>Recuperar senha</h1>
-      <p className="muted">Enviaremos um link para você criar uma nova senha.</p>
-      <form className="card card-pad stack" onSubmit={submit}>
-        {error && <div className="alert error" role="alert">{error}</div>}
-        {sent ? (
-          <div className="alert ok">Se houver uma conta com este e-mail, o link de redefinição foi enviado. Ele vale por 1 hora.</div>
-        ) : (
-          <>
-            <label className="field"><span>E-mail</span>
-              <input className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-            <button className="btn block" disabled={busy}>{busy ? 'Enviando…' : 'Enviar link'}</button>
-          </>
-        )}
-        <Link className="small" to="/entrar">Voltar para a entrada</Link>
-      </form>
-    </AuthLayout>
+    <CenterLayout title="Recuperar senha" lede="Enviaremos um link para você criar uma nova senha" onSubmit={submit}>
+      {error && <div className="alert error" role="alert">{error}</div>}
+      {sent ? (
+        <div className="alert ok">Se houver uma conta com este e-mail, o link de redefinição foi enviado. Ele vale por 1 hora.</div>
+      ) : (
+        <>
+          <label className="field"><span>E-mail</span>
+            <input className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+          <button className="btn block" disabled={busy}>{busy ? 'Enviando…' : <>Enviar link <Arrow /></>}</button>
+        </>
+      )}
+      <div className="links"><Link to="/entrar">Voltar para a entrada</Link></div>
+    </CenterLayout>
   );
 }
 
@@ -253,28 +259,24 @@ export function ResetPassword() {
   };
 
   return (
-    <AuthLayout narrow>
-      <h1>Criar nova senha</h1>
-      <p className="muted">Por segurança, suas sessões abertas serão encerradas.</p>
-      <form className="card card-pad stack" onSubmit={submit}>
-        {error && <div className="alert error" role="alert">{error}</div>}
-        {!token && <div className="alert error">Link incompleto. Abra novamente o link recebido por e-mail.</div>}
-        {done ? (
-          <>
-            <div className="alert ok">Senha atualizada.</div>
-            <Link className="btn block" to="/entrar">Entrar</Link>
-          </>
-        ) : (
-          <>
-            <label className="field"><span>Nova senha</span>
-              <input className="input" type="password" autoComplete="new-password" required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} />
-              <small>{PASSWORD_HINT}</small></label>
-            <label className="field"><span>Confirmar nova senha</span>
-              <input className="input" type="password" autoComplete="new-password" required minLength={12} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
-            <button className="btn block" disabled={busy || !token}>{busy ? 'Salvando…' : 'Salvar nova senha'}</button>
-          </>
-        )}
-      </form>
-    </AuthLayout>
+    <CenterLayout title="Criar nova senha" lede="Por segurança, suas sessões abertas serão encerradas" onSubmit={submit}>
+      {error && <div className="alert error" role="alert">{error}</div>}
+      {!token && <div className="alert error">Link incompleto. Abra novamente o link recebido por e-mail.</div>}
+      {done ? (
+        <>
+          <div className="alert ok">Senha atualizada.</div>
+          <Link className="btn block" to="/entrar">Entrar <Arrow /></Link>
+        </>
+      ) : (
+        <>
+          <label className="field"><span>Nova senha</span>
+            <input className="input" type="password" autoComplete="new-password" required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <small>{PASSWORD_HINT}</small></label>
+          <label className="field"><span>Confirmar nova senha</span>
+            <input className="input" type="password" autoComplete="new-password" required minLength={12} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
+          <button className="btn block" disabled={busy || !token}>{busy ? 'Salvando…' : 'Salvar nova senha'}</button>
+        </>
+      )}
+    </CenterLayout>
   );
 }

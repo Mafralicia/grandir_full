@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, errorMessage, useLoad } from '../api';
 import { useAuth } from '../auth';
 import { CLAIM_STATUS, date, dateTime, DOCUMENT_KIND, fileSize, integer, MARKETPLACE_LABEL, money, TYPE_LABEL } from '../labels';
-import { Badge, Empty, Loading, PageHead } from '../ui';
+import { Badge, Empty, Loading, PageHead, TypeTag } from '../ui';
 
 interface ClaimRow {
   id: string; code: string; type: string; status: string; claimedCents: number; approvedCents: number | null;
@@ -46,7 +46,7 @@ export function ClaimsList() {
                 {data.claims.map((claim) => (
                   <tr key={claim.id}>
                     <td><Link className="strong" to={`/app/chamados/${claim.id}`}>{claim.code}</Link><div className="muted small">{claim.marketplaceCaseId ?? 'sem nº de caso'}</div></td>
-                    <td>{TYPE_LABEL[claim.type]}</td>
+                    <td><TypeTag type={claim.type} /></td>
                     <td><div>{claim.productName}</div><div className="muted small">{claim.sku} · {integer(claim.quantity)} un.</div></td>
                     <td className="right num">{money(claim.claimedCents)}</td>
                     <td className="right num strong">{money(claim.approvedCents)}</td>

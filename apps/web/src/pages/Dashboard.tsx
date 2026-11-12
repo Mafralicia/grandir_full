@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useLoad } from '../api';
 import { useAuth } from '../auth';
-import { CLAIM_STATUS, date, dateTime, integer, money, percent, TYPE_LABEL } from '../labels';
+import { CLAIM_STATUS, date, dateTime, integer, money, percent, TYPE_CATEGORY, TYPE_LABEL } from '../labels';
 import { Badge, Empty, Kpi, Loading, Meter, MonthlyBars, PageHead } from '../ui';
 
 interface DashboardData {
@@ -63,9 +63,9 @@ export function Dashboard() {
 
       <div className="kpis">
         <Kpi highlight label="Recuperado" value={money(totals.recoveredCents)} hint={`Líquido da taxa: ${money(totals.recoveredCents - totals.feesCents)}`} />
-        <Kpi label="Aguardando pagamento" value={money(totals.awaitingPaymentCents)} hint="Aprovado, ainda não creditado" />
-        <Kpi label="Em disputa" value={money(totals.inDisputeCents)} hint={`${integer(totals.inDisputeCount)} chamados em andamento`} />
-        <Kpi label="Divergências em aberto" value={money(totals.openCents)} hint={`${integer(totals.openCount)} ainda sem chamado`} />
+        <Kpi accent="t-green" label="Aguardando pagamento" value={money(totals.awaitingPaymentCents)} hint="Aprovado, ainda não creditado" />
+        <Kpi accent="t-blue" label="Em disputa" value={money(totals.inDisputeCents)} hint={`${integer(totals.inDisputeCount)} chamados em andamento`} />
+        <Kpi accent="t-purple" label="Divergências em aberto" value={money(totals.openCents)} hint={`${integer(totals.openCount)} ainda sem chamado`} />
       </div>
 
       <div className="two-col">
@@ -83,7 +83,7 @@ export function Dashboard() {
           </div>
           <div className="card-pad meter-list">
             {data.byType.map((row) => (
-              <Meter key={row.type} label={<>{TYPE_LABEL[row.type]} <span className="muted">· {integer(row.count)}</span></>} value={money(row.cents)} ratio={row.cents / maxType} />
+              <Meter key={row.type} tone={TYPE_CATEGORY[row.type]?.tone} label={<>{TYPE_LABEL[row.type]} <span className="muted">· {integer(row.count)}</span></>} value={money(row.cents)} ratio={row.cents / maxType} />
             ))}
           </div>
         </div>

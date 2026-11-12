@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, errorMessage, useLoad } from '../api';
 import { useAuth } from '../auth';
 import { date, DISCREPANCY_STATUS, integer, money, TYPE_LABEL } from '../labels';
-import { Badge, Empty, Kpi, Loading, PageHead } from '../ui';
+import { Badge, Empty, Kpi, Loading, PageHead, TypeTag } from '../ui';
 
 interface ReconRow {
   sku: string; productName: string; storeName: string; opening: number; inbound: number; outbound: number;
@@ -27,10 +27,10 @@ export function Reconciliation() {
         subtitle="Saldo esperado = inicial + entradas − saídas − ajustes. Comparamos com o saldo informado pelo marketplace, SKU a SKU."
       />
       <div className="kpis">
-        <Kpi label="SKUs conciliados" value={integer(data.rows.length)} />
-        <Kpi label="SKUs com variação" value={integer(withVariance.length)} />
-        <Kpi label="Unidades sem explicação" value={integer(-missingUnits)} />
-        <Kpi label="Valor da variação" value={money(-missingValue)} hint="Pelo custo unitário" />
+        <Kpi accent="t-blue" label="SKUs conciliados" value={integer(data.rows.length)} />
+        <Kpi accent="t-purple" label="SKUs com variação" value={integer(withVariance.length)} />
+        <Kpi accent="t-gold" label="Unidades sem explicação" value={integer(-missingUnits)} />
+        <Kpi accent="t-green" label="Valor da variação" value={money(-missingValue)} hint="Pelo custo unitário" />
       </div>
       <div className="card">
         <div className="card-head">
@@ -159,8 +159,8 @@ export function Discrepancies() {
                   <Fragment key={row.id}>
                     <tr>
                       <td>
-                        <div className="strong">{TYPE_LABEL[row.type]}</div>
-                        <div>{row.productName}</div>
+                        <TypeTag type={row.type} />
+                        <div className="strong" style={{ marginTop: 6 }}>{row.productName}</div>
                         <div className="muted small">{row.sku} · ref. {row.referenceId}</div>
                         <button className="link-btn small" onClick={() => setExpanded(expanded === row.id ? null : row.id)} aria-expanded={expanded === row.id}>
                           {expanded === row.id ? 'Ocultar evidências' : 'Ver evidências'}

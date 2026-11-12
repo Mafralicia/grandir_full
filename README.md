@@ -2,7 +2,7 @@
 
 Plataforma SaaS de **auditoria financeira, conciliação de estoque e recuperação de reembolsos** para sellers que operam em fulfillment de marketplaces. A Grandir encontra o que o marketplace deve ao seller, conduz a disputa e cobra apenas uma taxa de sucesso sobre o que for pago.
 
-Projeto original: marca, identidade visual, código e motores foram escritos do zero. A pesquisa de mercado que orientou o escopo está em [docs/ANALISE-PUBLICA.md](docs/ANALISE-PUBLICA.md).
+Nome, logotipo, textos, código e motores foram escritos do zero. A direção visual — ouro quente sobre creme e carvão, títulos condensados em caixa alta, botões pílula — segue a linguagem de design de um serviço de referência do setor, por decisão do dono do produto. O que foi adotado e o que permanece próprio está em [docs/ANALISE-PUBLICA.md](docs/ANALISE-PUBLICA.md), junto com a pesquisa de mercado que orientou o escopo.
 
 ## Como rodar
 

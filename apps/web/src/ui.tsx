@@ -1,24 +1,60 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { money, moneyShort, monthLabel, type Tone } from './labels';
+import { money, moneyShort, monthLabel, TYPE_CATEGORY, TYPE_LABEL, type Tone, type ToneClass } from './labels';
+
+/** Símbolo da Grandir: barras ascendentes que terminam em uma folha. */
+export function Mark() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" fill="currentColor">
+      <rect x="3" y="18" width="6.5" height="11" rx="2" opacity=".5" />
+      <rect x="12.5" y="12" width="6.5" height="17" rx="2" opacity=".75" />
+      <rect x="22" y="10" width="6.5" height="19" rx="2" />
+      <path d="M25.25 8.5c0-4 2.4-6 5.75-6 0 3.9-2.1 6-5.75 6Z" />
+    </svg>
+  );
+}
 
 export function Logo({ to = '/' }: { to?: string }) {
   return (
     <Link to={to} className="logo" aria-label="Grandir">
-      <svg viewBox="0 0 32 32" aria-hidden="true">
-        <rect width="32" height="32" rx="9" fill="#1E6B52" />
-        <rect x="7" y="18" width="4.5" height="7" rx="1.6" fill="#C5EE6B" opacity=".55" />
-        <rect x="13.75" y="13" width="4.5" height="12" rx="1.6" fill="#C5EE6B" opacity=".8" />
-        <rect x="20.5" y="11" width="4.5" height="14" rx="1.6" fill="#C5EE6B" />
-        <path d="M22.75 10.5c0-3 1.9-4.6 4.6-4.6 0 2.9-1.7 4.6-4.6 4.6Z" fill="#C5EE6B" />
-      </svg>
+      <span style={{ color: 'var(--gold)', display: 'inline-flex' }}>
+        <Mark />
+      </span>
       grandir
     </Link>
   );
 }
 
+/** Seta de ação usada nos botões principais. */
+export function Arrow() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </svg>
+  );
+}
+
+/** O símbolo ampliado e cortado pela borda do painel. O contêiner precisa de position: relative e overflow: hidden. */
+export function Watermark() {
+  return (
+    <div className="watermark" aria-hidden="true">
+      <Mark />
+    </div>
+  );
+}
+
 export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
   return <span className={`badge ${tone === 'neutral' ? '' : tone}`}>{children}</span>;
+}
+
+/** Tipo de divergência como etiqueta na cor da sua categoria. */
+export function TypeTag({ type }: { type: string }) {
+  const category = TYPE_CATEGORY[type];
+  return (
+    <span className={`tag plain ${category?.tone ?? 't-gold'}`} title={category?.label}>
+      {TYPE_LABEL[type] ?? type}
+    </span>
+  );
 }
 
 export function PageHead({ title, subtitle, children }: { title: string; subtitle?: string; children?: ReactNode }) {
@@ -33,9 +69,9 @@ export function PageHead({ title, subtitle, children }: { title: string; subtitl
   );
 }
 
-export function Kpi({ label, value, hint, highlight }: { label: string; value: string; hint?: string; highlight?: boolean }) {
+export function Kpi({ label, value, hint, highlight, accent }: { label: string; value: string; hint?: string; highlight?: boolean; accent?: ToneClass }) {
   return (
-    <div className={`card kpi ${highlight ? 'hero-kpi' : ''}`}>
+    <div className={`card kpi ${highlight ? 'hero-kpi' : ''} ${accent ? `accent ${accent}` : ''}`}>
       <div className="label">{label}</div>
       <div className="value num">{value}</div>
       {hint && <div className="hint">{hint}</div>}
@@ -108,9 +144,9 @@ export function MonthlyBars({ data }: { data: { period: string; cents: number }[
   );
 }
 
-export function Meter({ label, value, ratio }: { label: ReactNode; value: string; ratio: number }) {
+export function Meter({ label, value, ratio, tone }: { label: ReactNode; value: string; ratio: number; tone?: ToneClass }) {
   return (
-    <div className="meter">
+    <div className={`meter ${tone ?? ''}`}>
       <div className="top">
         <span>{label}</span>
         <span className="num strong">{value}</span>

@@ -1,5 +1,6 @@
 import '@fontsource-variable/inter';
-import '@fontsource-variable/manrope';
+import '@fontsource/barlow-condensed/700.css';
+import '@fontsource/barlow-condensed/800.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';

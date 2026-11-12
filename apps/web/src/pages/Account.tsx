@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, errorMessage, useLoad } from '../api';
 import { useAuth } from '../auth';
-import { activityLabel, date, dateTime, integer, MARKETPLACE_LABEL, money, monthLabel, ROLE_LABEL, TYPE_LABEL } from '../labels';
-import { Badge, Empty, Kpi, Loading, PageHead } from '../ui';
+import { activityLabel, date, dateTime, integer, MARKETPLACE_LABEL, money, monthLabel, ROLE_LABEL } from '../labels';
+import { Badge, Empty, Kpi, Loading, PageHead, TypeTag } from '../ui';
 
 type Message = { tone: 'ok' | 'error'; text: string } | null;
 
@@ -163,9 +163,9 @@ export function Billing() {
     <>
       <PageHead title="Faturamento" subtitle="A taxa de sucesso incide apenas sobre reembolsos efetivamente pagos pelo marketplace." />
       <div className="kpis">
-        <Kpi label="Taxa de sucesso contratada" value={rate} hint="Sem mensalidade nem adesão" />
-        <Kpi label="Total recuperado" value={money(recovered)} />
-        <Kpi label="Taxas da Grandir" value={money(fees)} />
+        <Kpi accent="t-gold" label="Taxa de sucesso contratada" value={rate} hint="Sem mensalidade nem adesão" />
+        <Kpi accent="t-green" label="Total recuperado" value={money(recovered)} />
+        <Kpi accent="t-blue" label="Taxas da Grandir" value={money(fees)} />
         <Kpi highlight label="Líquido para você" value={money(recovered - fees)} />
       </div>
       <div className="card">
@@ -203,7 +203,7 @@ export function Billing() {
                   <tr key={line.id}>
                     <td className="nowrap">{date(line.createdAt)}</td>
                     <td><Link className="strong" to={`/app/chamados/${line.claimId}`}>{line.code}</Link></td>
-                    <td>{TYPE_LABEL[line.type]}</td>
+                    <td><TypeTag type={line.type} /></td>
                     <td className="right num">{money(line.recoveredCents)}</td>
                     <td className="right num">{money(line.feeCents)}</td>
                   </tr>

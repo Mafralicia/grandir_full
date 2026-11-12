@@ -1,4 +1,19 @@
-export type Tone = 'neutral' | 'info' | 'warn' | 'success' | 'danger';
+export type Tone = 'neutral' | 'info' | 'warn' | 'success' | 'danger' | 'purple';
+
+/** Classes do sistema de quatro cores (ver styles.css). */
+export type ToneClass = 't-gold' | 't-blue' | 't-purple' | 't-green';
+
+/** Cada tipo de divergência pertence a uma categoria, e cada categoria tem uma cor fixa. */
+export const TYPE_CATEGORY: Record<string, { label: string; tone: ToneClass }> = {
+  LOST_WAREHOUSE: { label: 'Estoque', tone: 't-blue' },
+  DAMAGED_WAREHOUSE: { label: 'Estoque', tone: 't-blue' },
+  DISPOSED_SELLABLE: { label: 'Estoque', tone: 't-blue' },
+  TRANSFER_LOST: { label: 'Logística', tone: 't-purple' },
+  INBOUND_SHORTAGE: { label: 'Logística', tone: 't-purple' },
+  REMOVAL_NOT_RECEIVED: { label: 'Logística', tone: 't-purple' },
+  FEE_OVERCHARGE: { label: 'Tarifas', tone: 't-gold' },
+  RETURN_NOT_RECEIVED: { label: 'Devoluções', tone: 't-green' },
+};
 
 export const TYPE_LABEL: Record<string, string> = {
   LOST_WAREHOUSE: 'Perda em armazém',
@@ -19,7 +34,7 @@ export const CLAIM_STATUS: Record<string, { label: string; tone: Tone }> = {
   APPROVED: { label: 'Aprovado', tone: 'success' },
   PARTIALLY_APPROVED: { label: 'Aprovado parcialmente', tone: 'success' },
   DENIED: { label: 'Negado', tone: 'danger' },
-  REOPENED: { label: 'Reaberto', tone: 'warn' },
+  REOPENED: { label: 'Reaberto', tone: 'purple' },
   PAID: { label: 'Pago', tone: 'success' },
   CLOSED: { label: 'Encerrado', tone: 'neutral' },
 };
