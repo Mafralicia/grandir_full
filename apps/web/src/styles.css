@@ -431,6 +431,10 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; }
 
 .ticket { margin: 0; padding: 20px 22px; white-space: pre-wrap; word-break: break-word; font-family: var(--font-sans); font-size: 13.5px; line-height: 1.6; color: var(--text); max-height: 520px; overflow: auto; }
 
+.row-actions { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.export-links { display: flex; gap: 12px; font-size: 13px; }
+.export-links a, .export-links .link-btn { font-size: 13px; }
+
 /* Portal: acento de cor em indicadores */
 .kpi.accent { border-top: 4px solid var(--tone); }
 
@@ -466,6 +470,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .site-nav .inner { justify-content: space-between; }
   .steps, .types, .kpis, .form-grid, .facts, .pillars, .site-footer .cols { grid-template-columns: 1fr; }
   .trust .panel { padding: 26px 22px; }
+  .form-grid[style] { grid-template-columns: 1fr !important; }
   .section { padding: 60px 0; }
   .hero { padding: 56px 0 64px; }
   .cta-band { padding: 36px 24px; }

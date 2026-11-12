@@ -45,7 +45,7 @@ export function ClaimsList() {
               <tbody>
                 {data.claims.map((claim) => (
                   <tr key={claim.id}>
-                    <td><Link className="strong" to={`/app/chamados/${claim.id}`}>{claim.code}</Link><div className="muted small">{claim.marketplaceCaseId ?? 'sem nº de caso'}</div></td>
+                    <td><Link className="strong nowrap" to={`/app/chamados/${claim.id}`}>{claim.code}</Link><div className="muted small">{claim.marketplaceCaseId ?? 'sem nº de caso'}</div></td>
                     <td><TypeTag type={claim.type} /></td>
                     <td><div>{claim.productName}</div><div className="muted small">{claim.sku} · {integer(claim.quantity)} un.</div></td>
                     <td className="right num">{money(claim.claimedCents)}</td>

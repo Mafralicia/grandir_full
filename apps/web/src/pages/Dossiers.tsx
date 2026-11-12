@@ -1,4 +1,4 @@
-import { Copy, FileSpreadsheet, FileText, FolderPlus, Sheet } from 'lucide-react';
+import { Copy, FileSpreadsheet, FolderPlus, Sheet } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, errorMessage, useLoad } from '../api';
@@ -100,7 +100,7 @@ export function Dossiers() {
               <tbody>
                 {cases.data.cases.map((row) => (
                   <tr key={row.id}>
-                    <td><Link className="strong" to={`/app/dossies/${row.id}`}>{row.code}</Link><div className="muted small">{row.bucketLabel}</div></td>
+                    <td><Link className="strong nowrap" to={`/app/dossies/${row.id}`}>{row.code}</Link><div className="muted small">{row.bucketLabel}</div></td>
                     <td><TypeTag type={row.type} /></td>
                     <td>{row.storeName}</td>
                     <td>{row.protocol ?? <span className="muted">—</span>}</td>
@@ -137,18 +137,18 @@ export function Dossiers() {
                     <td className="right num strong">{money(group.totalCents)}</td>
                     <td className="nowrap">{date(group.earliestDeadline)}</td>
                     <td className="right">
-                      <div className="row" style={{ justifyContent: 'flex-end', gap: 6, flexWrap: 'nowrap' }}>
+                      <div className="row-actions">
                         {can('ANALYST') && (
                           <button className="btn sm" disabled={busy !== null} onClick={() => createCase(group.key)}>
                             <FolderPlus aria-hidden="true" /> Criar chamado
                           </button>
                         )}
-                        <button className="btn ghost sm" disabled={busy !== null} onClick={() => show(group.key)} aria-expanded={open?.key === group.key}>
-                          <FileText aria-hidden="true" /> Texto
-                        </button>
-                        <a className="btn ghost sm" href={url(group.key, 'pdf')}>PDF</a>
-                        <a className="btn ghost sm" href={url(group.key, 'xlsx')}><Sheet aria-hidden="true" /> XLSX</a>
-                        <a className="btn ghost sm" href={url(group.key, 'csv')}><FileSpreadsheet aria-hidden="true" /> CSV</a>
+                        <div className="export-links">
+                          <button className="link-btn" disabled={busy !== null} onClick={() => show(group.key)} aria-expanded={open?.key === group.key}>Texto</button>
+                          <a href={url(group.key, 'pdf')}>PDF</a>
+                          <a href={url(group.key, 'xlsx')}>XLSX</a>
+                          <a href={url(group.key, 'csv')}>CSV</a>
+                        </div>
                       </div>
                     </td>
                   </tr>

@@ -61,7 +61,7 @@ export function Stores() {
       )}
       <Note message={message} />
 
-      <div className="two-col">
+      <div className="stack">
         <div className="card">
           <div className="card-head"><h3>Lojas conectadas</h3></div>
           {data.stores.length === 0 ? (
@@ -73,8 +73,8 @@ export function Stores() {
                 <tbody>
                   {data.stores.map((store) => (
                     <tr key={store.id}>
-                      <td><div className="strong">{store.name}</div>{store.connector.includes('demo') ? <Badge tone="warn">Dados de demonstração</Badge> : <Badge tone="success">Conta conectada</Badge>}</td>
-                      <td>{MARKETPLACE_LABEL[store.marketplace]} · {store.region}<div className="muted small">{integer(store.erpProductCount)} produtos do ERP · {integer(store.nfeCount)} NF-e</div></td>
+                      <td style={{ minWidth: 220 }}><div className="strong">{store.name}</div>{store.connector.includes('demo') ? <Badge tone="warn">Dados de demonstração</Badge> : <Badge tone="success">Conta conectada</Badge>}</td>
+                      <td style={{ minWidth: 190 }}>{MARKETPLACE_LABEL[store.marketplace]} · {store.region}<div className="muted small nowrap">{integer(store.erpProductCount)} produtos do ERP · {integer(store.nfeCount)} NF-e</div></td>
                       <td className="nowrap">{store.lastAuditAt ? dateTime(store.lastAuditAt) : '—'}</td>
                       <td className="right num">{integer(store.discrepancyCount)}</td>
                       <td className="right">
@@ -151,18 +151,20 @@ export function Stores() {
               auditoria. Mercado Livre e Shopee usam as regras brasileiras (frete cubado, comissão, repasse, devoluções e NF-e).
               A integração com a API oficial de cada marketplace depende de credenciais de parceiro.
             </div>
-            <label className="field"><span>Nome da loja</span>
-              <input className="input" required minLength={2} maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-            <label className="field"><span>Marketplace</span>
-              <select className="input" value={form.marketplace} onChange={(e) => setForm({ ...form, marketplace: e.target.value })}>
-                {Object.entries(MARKETPLACE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select></label>
-            <label className="field"><span>País de operação</span>
-              <select className="input" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}>
-                <option value="BR">Brasil</option><option value="MX">México</option><option value="US">Estados Unidos</option>
-                <option value="AR">Argentina</option><option value="CL">Chile</option><option value="CO">Colômbia</option>
-              </select></label>
-            <button className="btn" disabled={busy}>{busy ? 'Conectando e auditando…' : 'Conectar e auditar'}</button>
+            <div className="form-grid" style={{ gridTemplateColumns: '2fr 1fr 1fr' }}>
+              <label className="field"><span>Nome da loja</span>
+                <input className="input" required minLength={2} maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+              <label className="field"><span>Marketplace</span>
+                <select className="input" value={form.marketplace} onChange={(e) => setForm({ ...form, marketplace: e.target.value })}>
+                  {Object.entries(MARKETPLACE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select></label>
+              <label className="field"><span>País de operação</span>
+                <select className="input" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}>
+                  <option value="BR">Brasil</option><option value="MX">México</option><option value="US">Estados Unidos</option>
+                  <option value="AR">Argentina</option><option value="CL">Chile</option><option value="CO">Colômbia</option>
+                </select></label>
+            </div>
+            <button className="btn" disabled={busy} style={{ alignSelf: 'flex-start' }}>{busy ? 'Conectando e auditando…' : 'Conectar e auditar'}</button>
           </form>
         )}
       </div>

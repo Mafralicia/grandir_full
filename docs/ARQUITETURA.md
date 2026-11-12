@@ -74,12 +74,42 @@ Cada marketplace brasileiro é um `brConnector(id, rótulo, marketplace, origem)
 
 Toda regra passa por um único ponto (`emit`), que aplica a tolerância, calcula o prazo de contestação, descarta o que já prescreveu e anexa identificadores, memória de cálculo e cronologia. As tabelas de tarifas e prazos (`tables.ts`) são **valores de referência** e precisam ser trocadas pelas vigentes.
 
+### Tabelas versionadas por vigência
+
+As tarifas ficam em `packages/engines/config/tarifas/mercadolivre.json` e `shopee.json`. Cada versão tem `effectiveFrom`, `effectiveTo` (ou `null`, em aberto), `verified`, `sources` e `notes`. A carga valida que as vigências não se sobrepõem. `versionAt(versões, dataDaVenda)` escolhe a regra de cada pedido; sem versão para a data, as regras de tarifa não disparam para aquele pedido. A divergência guarda qual versão a calculou (`details.tariff`) e, se ela não estiver confirmada, o dossiê leva um aviso para o seller — fora do texto enviado ao marketplace.
+
+Para incluir uma mudança de regra: acrescentar uma versão nova com a data de início e fechar a anterior com `effectiveTo`. Pedidos antigos continuam sendo auditados pela regra antiga.
+
+### Chamado por dossiê
+
+```
+RASCUNHO → ABERTO → EM_ANALISE → DEFERIDO → PAGO
+                         │  ▲
+                         ▼  │ (reabertura)
+                     INDEFERIDO
+```
+
+Criar o chamado (`dossier_cases`) gera um registro por divergência (`claims.case_id`), que guarda o valor contestado e o deferido daquele item. O status do chamado **governa** esses registros: `transitionCase` move todos juntos, e a alteração individual de um registro vinculado é recusada. No deferimento, cada item recebe seu valor (integral, parcial ou zero); no pagamento, só os itens deferidos são pagos e cada um gera a linha de cobrança por sucesso. Abrir exige o protocolo do marketplace.
+
+### Contas reais (OAuth 2.0)
+
+1. `POST /api/stores/:id/oauth/start` gera a URL de autorização e um `state` aleatório, guardado só como hash, preso ao tenant, à loja e ao usuário, com validade de 10 minutos.
+2. O marketplace redireciona para `GET /api/oauth/:marketplace/callback`. O `state` é apagado antes de qualquer chamada externa (uso único) e conferido contra a sessão.
+3. O código é trocado por `access_token` e `refresh_token`, gravados cifrados (AES-256-GCM) na loja, que passa a usar o conector real.
+4. Antes de cada coleta, `freshTokens` renova o token que expira em menos de cinco minutos.
+
+O cliente HTTP (`integrations/http.ts`) serializa as chamadas com intervalo mínimo, repete em 429 e 5xx com espera exponencial e respeita `Retry-After`. A Shopee exige assinatura HMAC-SHA256 em cada chamada (`shopeeSign`). Toda saída de rede passa por `runtime.fetch`, substituído nos testes.
+
+### NF-e (modelo 55)
+
+`parseNfeXml` lê o XML autorizado ou a nota isolada: chave de acesso (com conferência do dígito verificador), CFOP, itens (código, EAN, quantidade, valores), pesos bruto e líquido e totais fiscais. O CFOP classifica a nota em entrada, remessa, retorno, venda ou devolução. O número do pedido no item (`xPed`) liga a nota de venda ao pedido do marketplace e a de remessa ao lote. Entidades e DTD do XML não são processadas.
+
 ### Dossiês
 
 - **Agrupamento:** por loja e tipo, e depois por **lote de envio** (quando a ocorrência pertence a um lote) ou por **mês**. Grupos grandes são divididos em partes. Na conta de demonstração, 135 ocorrências viram 35 dossiês.
 - **Conteúdo:** pedido, envio, rastreio, SKU, anúncio (MLB ou Item ID), EAN, chave da NF-e e lote; valor de referência, valor creditado ou correto e diferença; regra aplicável; cronologia até o prazo limite.
 - **Saídas:** texto pronto para colar no chamado, CSV no padrão brasileiro, XLSX e PDF. Células que uma planilha leria como fórmula são neutralizadas.
-- **Sem estado:** o dossiê é montado sob demanda a partir das divergências em aberto do tenant; a chave do grupo é estável enquanto elas não mudam. Cada exportação fica na trilha de auditoria.
+- **Antes e depois do chamado:** enquanto as divergências estão em aberto, o dossiê é montado sob demanda (a chave do grupo é estável enquanto elas não mudam). Depois de virar chamado, o conteúdo fica fixo nas divergências vinculadas e continua exportável. Cada exportação fica na trilha de auditoria.
 
 ## Ciclo de vida do chamado
 

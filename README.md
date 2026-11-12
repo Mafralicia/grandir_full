@@ -21,6 +21,7 @@ Outros comandos:
 | `npm test` | Testes dos motores e da API (isolamento entre tenants, autenticação, permissões) |
 | `npm run typecheck` | Checagem de tipos dos três pacotes |
 | `npm run build` | Build de produção do front-end |
+| `node scripts/desktop-check.mjs . <pasta-de-saída>` | Com o app rodando, mede estouro de tabelas e captura as telas do portal em 1440x900 (Edge headless) |
 
 Configuração por variáveis de ambiente: copie `.env.example` para `.env`. Em produção, `DATA_ENCRYPTION_KEY` é obrigatória.
 
@@ -42,6 +43,10 @@ docs               Análise pública e arquitetura
 - **Conciliação de estoque** — reconstrói o saldo de cada SKU a partir do razão de movimentações e compara com o saldo informado.
 - **Oito detectores de divergência** — perda e dano em armazém, descarte indevido, perda em transferência, falta em remessa, remoção não entregue, tarifa cobrada a maior e devolução não recebida. Cada divergência traz a memória de cálculo.
 - **Regras brasileiras** — Mercado Livre (extravio e avaria no centro de distribuição e em trânsito, frete por peso cubado, devoluções sem retorno ou avariadas, comissão e tarifa fixa), Shopee (pedido extraviado sem crédito, repasse líquido a menor, cubagem) e cruzamento ERP × marketplace (NF-e de remessa contra o recebimento, venda faturada sem repasse).
+- **Chamado por dossiê** — o dossiê vira um único chamado, cujo status (rascunho, aberto, em análise, deferido, indeferido, pago) vale para todas as divergências do grupo. Registra protocolo, data de abertura, valor contestado, valor deferido por item (deferimento parcial) e valor reembolsado; a taxa de sucesso incide só sobre os itens pagos.
+- **Tarifas versionadas** — tabelas de Mercado Livre e Shopee em `packages/engines/config/tarifas/*.json`, com `effectiveFrom`/`effectiveTo`; cada pedido é auditado com a versão vigente na data da venda.
+- **Contas reais por OAuth** — autorização OAuth 2.0 com Mercado Livre e Shopee, tokens cifrados e renovados automaticamente, clientes HTTP com limite de taxa e nova tentativa.
+- **XML de NF-e** — importação em lote de NF-e modelo 55 (chave de acesso, CFOP, itens, pesos e valores fiscais), independente do ERP.
 - **Dossiês de evidência** — agrupa as divergências por tipo e por lote de envio ou mês e gera, para cada grupo, o texto pronto para o chamado, a planilha (CSV e XLSX) e o PDF com identificadores, memória de cálculo e cronologia.
 - **Planilha do ERP** — importa o cadastro de produtos exportado do Bling, Tiny ou Omie (CSV); peso, medidas e custo do ERP passam a ser a referência da auditoria.
 - **Gestão de chamados** — ciclo de vida completo (envio, análise, pedido de documentos, aprovação, negativa, reabertura, pagamento), linha do tempo, comentários e anexos.
@@ -54,11 +59,11 @@ Detalhes de arquitetura e segurança: [docs/ARQUITETURA.md](docs/ARQUITETURA.md)
 
 Estes pontos são limites reais do estado atual, não detalhes de configuração:
 
-1. **Conectores de marketplace.** Todos os conectores usam dados sintéticos. Para Mercado Livre e Shopee, o motor de regras e o adaptador estão prontos, mas a origem de dados real (`BrDataSource`, em `apps/api/src/connectors/br`) ainda precisa ser implementada sobre as APIs oficiais, o que exige aplicativo registrado e autorização OAuth de cada seller. Integração direta com as APIs de ERP também não existe: a entrada é por planilha.
+1. **Integrações reais não testadas contra as APIs de verdade.** O OAuth e os clientes de Mercado Livre e Shopee foram escritos pela documentação pública e exercitados apenas com respostas simuladas. Nomes de campos, rotas e o host da Shopee precisam ser conferidos na primeira conexão com um aplicativo registrado (`ML_CLIENT_ID`, `SHOPEE_PARTNER_ID` etc. no `.env`). A coleta real ainda não traz conferência de lotes no centro de distribuição, detalhe de devoluções nem o relatório de liberações do Mercado Pago; as regras que dependem desses dados não disparam para lojas conectadas. Extravios vêm do status do envio, sem saber se já houve indenização. Integração direta com APIs de ERP não existe: a entrada é por planilha e XML.
 2. **Envio de e-mail.** Links de redefinição de senha e convites são escritos no log da API. Falta o adaptador de um provedor transacional (`apps/api/src/mailer.ts`).
 3. **Recebimento das faturas.** As faturas são calculadas, mas não há integração com meio de pagamento.
 4. **Banco de dados.** Usa SQLite embutido (`node:sqlite`, ainda marcado como experimental no Node 22). Para produção, migrar para PostgreSQL com Row-Level Security como segunda barreira de isolamento.
 5. **Termos de Serviço e Política de Privacidade.** O cadastro exige o aceite, mas os textos jurídicos não existem e precisam ser redigidos por um advogado.
 6. **Proteção contra robôs no cadastro.** Há limite de requisições e campo-isca; um CAPTCHA (por exemplo, Turnstile) é recomendável antes de abrir ao público.
-7. **Regras de negócio.** Comissões, tarifas fixas, tabelas de frete, divisor de cubagem e prazos de contestação (`packages/engines/src/br/tables.ts`) são valores de referência para demonstração e testes, não as tabelas oficiais. Precisam ser substituídos pelas regras vigentes de cada marketplace antes de qualquer uso real — um dossiê com a regra errada enfraquece o pedido.
-8. **Dossiê e chamado ainda são fluxos separados.** O dossiê agrupa várias divergências em um único pedido, mas o registro de chamados continua sendo um por divergência. Falta unificar: abrir um chamado por dossiê.
+7. **Tabelas de tarifas não confirmadas.** O versionamento por vigência está pronto, mas **nenhuma versão carregada foi conferida na fonte oficial**: as páginas de ajuda do Mercado Livre e da Shopee não puderam ser lidas, e as fontes secundárias divergem entre si. Todas estão com `"verified": false`, e o portal avisa no chamado quando a regra usada não foi confirmada. A comissão do Mercado Livre por categoria traz só três categorias de exemplo; a tabela de frete não considera reputação. Prazos de contestação também são valores de referência. Antes de contestar de verdade: conferir cada versão no painel do seller e marcar `"verified": true`.
+8. **Classificação de CFOP.** O importador de NF-e trata 5.949/6.949 ("outras saídas") como remessa para armazém, que é o uso comum em fulfillment, mas o código também serve a outras operações. Vale revisar com o contador do seller.
