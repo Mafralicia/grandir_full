@@ -38,6 +38,49 @@ Propriedades garantidas por teste:
 
 Os prazos (`policy.ts`) e a tabela de tarifas (`fees.ts`) são valores de referência. Cada conector real deve fornecer os do marketplace correspondente.
 
+## Núcleo brasileiro: conectores, motor de regras e dossiês
+
+Três módulos com responsabilidades separadas:
+
+| Módulo | Onde | Papel |
+| --- | --- | --- |
+| `connectors` | `apps/api/src/connectors` | Busca os dados e traduz para o modelo neutro `BrAuditInput` |
+| `audit-engine` | `packages/engines/src/br` | Aplica as regras e devolve `Finding[]` com valor, prazo e evidência |
+| `evidence-reporter` | `packages/engines/src/evidence` e `apps/api/src/evidence-reporter` | Agrupa, redige o chamado e exporta PDF, CSV e XLSX |
+
+### Conectores
+
+Cada marketplace brasileiro é um `brConnector(id, rótulo, marketplace, origem)`. A **origem de dados** (`BrDataSource`) é a única parte que muda entre demonstração e produção: hoje é um gerador sintético; a versão real chama as APIs oficiais. O conector sobrepõe o **cadastro do ERP** (importado por planilha) ao do marketplace antes de rodar as regras, porque peso, medidas e custo do ERP são a fonte de verdade.
+
+### Modelo de dados neutro
+
+`ErpProduct` (SKU, EAN, custo, peso, medidas) · `MarketplaceOrder` (pedido, envio, rastreio, anúncio, comissão, tarifa, frete, peso cobrado, repasse) · `LogisticsIncident` (extravio ou avaria) · `ReturnCase` (devolução ou mediação) · `Nfe` (entrada, remessa, venda, devolução, com chave de acesso) · `WarehouseReceipt` (conferência do lote).
+
+### Regras
+
+| Regra | Compara | Valor a recuperar |
+| --- | --- | --- |
+| `ML_WAREHOUSE_LOSS` / `ML_WAREHOUSE_DAMAGE` | Ocorrência no centro de distribuição × indenização | Custo no ERP − creditado |
+| `ML_TRANSIT_LOSS` | Extravio em trânsito ou na reversa × indenização | Valor da venda − creditado |
+| `ML_FREIGHT_OVERCHARGE` | Peso cobrado × peso tarifável pelo cadastro do ERP | Frete cobrado − frete correto |
+| `ML_RETURN_NOT_RESTOCKED` | Mediação a favor do comprador × retorno ao estoque | Reembolso ao comprador − restituído |
+| `ML_RETURN_DAMAGED` | Produto devolvido avariado × indenização | Custo no ERP − creditado |
+| `ML_COMMISSION_OVERCHARGE` | Comissão e tarifa fixa × regra da categoria e do tipo de anúncio | Cobrado − correto |
+| `SHOPEE_LOST_NO_CREDIT` | Pedido extraviado × crédito no extrato | Valor da venda − creditado |
+| `SHOPEE_PAYOUT_SHORTFALL` | Repasse esperado (venda − comissão − taxa − frete) × liquidado | Esperado − liquidado |
+| `SHOPEE_FREIGHT_OVERCHARGE` | Cubagem cobrada × medidas do ERP | Frete cobrado − frete correto |
+| `ERP_INBOUND_GAP` | NF-e de remessa × conferência do lote | Unidades faltantes × valor unitário da nota |
+| `ERP_UNSETTLED_SALE` | NF-e de venda × repasse no prazo | Repasse líquido esperado |
+
+Toda regra passa por um único ponto (`emit`), que aplica a tolerância, calcula o prazo de contestação, descarta o que já prescreveu e anexa identificadores, memória de cálculo e cronologia. As tabelas de tarifas e prazos (`tables.ts`) são **valores de referência** e precisam ser trocadas pelas vigentes.
+
+### Dossiês
+
+- **Agrupamento:** por loja e tipo, e depois por **lote de envio** (quando a ocorrência pertence a um lote) ou por **mês**. Grupos grandes são divididos em partes. Na conta de demonstração, 135 ocorrências viram 35 dossiês.
+- **Conteúdo:** pedido, envio, rastreio, SKU, anúncio (MLB ou Item ID), EAN, chave da NF-e e lote; valor de referência, valor creditado ou correto e diferença; regra aplicável; cronologia até o prazo limite.
+- **Saídas:** texto pronto para colar no chamado, CSV no padrão brasileiro, XLSX e PDF. Células que uma planilha leria como fórmula são neutralizadas.
+- **Sem estado:** o dossiê é montado sob demanda a partir das divergências em aberto do tenant; a chave do grupo é estável enquanto elas não mudam. Cada exportação fica na trilha de auditoria.
+
 ## Ciclo de vida do chamado
 
 ```

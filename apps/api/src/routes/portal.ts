@@ -7,7 +7,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createPasswordResetToken, logActivity, revokeUserSessions, ROLE_RANK, type Role } from '../auth/service';
 import type { Config } from '../config';
-import { MARKETPLACES } from '../connectors/index';
+import { CONNECTOR_FOR, MARKETPLACES } from '../connectors/index';
+import { parseErpProducts } from '../connectors/erp/sheet';
 import { nowIso, type Db } from '../db';
 import { badRequest, conflict, forbidden, notFound } from '../errors';
 import type { Mailer } from '../mailer';
@@ -169,12 +170,12 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
     const { total } = scope.get<{ total: number }>('SELECT COUNT(*) AS total FROM stores WHERE tenant_id = :tenantId')!;
     if (total >= MAX_STORES) throw conflict(`Limite de ${MAX_STORES} lojas por conta atingido.`);
 
-    // Único conector disponível neste ambiente: dados sintéticos, sem credenciais de marketplace.
+    // Todos os conectores deste ambiente operam com dados sintéticos, sem credenciais de marketplace.
     const storeId = randomUUID();
     scope.run(
       `INSERT INTO stores (id, tenant_id, name, marketplace, region, connector, created_at)
-       VALUES (:id, :tenantId, :name, :marketplace, :region, 'demo', :createdAt)`,
-      { id: storeId, ...body, createdAt: nowIso() },
+       VALUES (:id, :tenantId, :name, :marketplace, :region, :connector, :createdAt)`,
+      { id: storeId, ...body, connector: CONNECTOR_FOR[body.marketplace], createdAt: nowIso() },
     );
     const summary = await runStoreAudit(scope, config, storeId);
     simulateDemoHistory(scope, storeId);
@@ -188,6 +189,33 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
     const summary = await runStoreAudit(request.auth!.scope, config, id);
     audit(request, 'AUDITORIA_EXECUTADA', id);
     return { audit: summary };
+  });
+
+  app.addContentTypeParser('text/csv', { parseAs: 'string', bodyLimit: MAX_UPLOAD_BYTES }, (_request, body, done) => done(null, body));
+
+  // Cadastro de produtos exportado do ERP (Bling, Tiny, Omie…): fonte de verdade de custo, peso e medidas.
+  app.put('/api/stores/:id/erp-products', { preHandler: atLeast('ADMIN'), bodyLimit: MAX_UPLOAD_BYTES }, async (request) => {
+    const { scope } = request.auth!;
+    const { id } = idParams.parse(request.params);
+    if (typeof request.body !== 'string') throw badRequest('Envie a planilha em CSV no corpo da requisição.');
+    if (!scope.get('SELECT id FROM stores WHERE tenant_id = :tenantId AND id = :id', { id })) throw notFound('Loja não encontrada.');
+
+    const sheet = parseErpProducts(request.body);
+    if (sheet.products.length === 0) throw badRequest(sheet.errors[0]?.reason ?? 'Nenhum produto válido na planilha.');
+    const importedAt = nowIso();
+    scope.transaction(() => {
+      for (const product of sheet.products.slice(0, 5000)) {
+        scope.run(
+          `INSERT INTO erp_products (tenant_id, store_id, sku, product_json, imported_at)
+           VALUES (:tenantId, :storeId, :sku, :json, :importedAt)
+           ON CONFLICT (tenant_id, store_id, sku) DO UPDATE SET product_json = :json, imported_at = :importedAt`,
+          { storeId: id, sku: product.sku, json: JSON.stringify(product), importedAt },
+        );
+      }
+    });
+    const summary = await runStoreAudit(scope, config, id);
+    audit(request, 'PLANILHA_ERP_IMPORTADA', `${sheet.products.length} produtos`);
+    return { imported: sheet.products.length, errors: sheet.errors.slice(0, 20), audit: summary };
   });
 
   app.get('/api/reconciliation', { preHandler: atLeast('VIEWER') }, async (request) => {

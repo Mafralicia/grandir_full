@@ -122,6 +122,15 @@ CREATE TABLE IF NOT EXISTS discrepancies (
 );
 CREATE INDEX IF NOT EXISTS idx_disc_tenant ON discrepancies(tenant_id, status);
 
+CREATE TABLE IF NOT EXISTS erp_products (
+  tenant_id    TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  store_id     TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  sku          TEXT NOT NULL,
+  product_json TEXT NOT NULL,
+  imported_at  TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, store_id, sku)
+);
+
 CREATE TABLE IF NOT EXISTS claims (
   id                  TEXT PRIMARY KEY,
   tenant_id           TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -208,7 +217,14 @@ export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   db.exec(SCHEMA);
+  addColumn(db, 'discrepancies', 'details_json', 'TEXT');
   return db;
+}
+
+/** Migração aditiva: cria a coluna se o banco foi criado por uma versão anterior. */
+function addColumn(db: Db, table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
 /** Executa `fn` em uma transação; qualquer exceção desfaz todas as escritas. */

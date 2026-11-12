@@ -1,3 +1,5 @@
+import { BR_RULES, type FindingDetails } from './br/model';
+
 /** Valores monetários são sempre inteiros em centavos — nunca ponto flutuante. */
 export type Cents = number;
 
@@ -10,6 +12,7 @@ export const DISCREPANCY_TYPES = [
   'REMOVAL_NOT_RECEIVED',
   'FEE_OVERCHARGE',
   'RETURN_NOT_RECEIVED',
+  ...BR_RULES,
 ] as const;
 export type DiscrepancyType = (typeof DISCREPANCY_TYPES)[number];
 
@@ -119,6 +122,8 @@ export interface Discrepancy {
   expiresAt: string | null;
   /** Trilha legível de como o valor foi apurado. */
   evidence: string[];
+  /** Identificadores, memória de cálculo e cronologia para o dossiê (regras do e-commerce brasileiro). */
+  details?: FindingDetails;
 }
 
 export interface SkuReconciliation {

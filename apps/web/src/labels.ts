@@ -13,6 +13,18 @@ export const TYPE_CATEGORY: Record<string, { label: string; tone: ToneClass }> =
   REMOVAL_NOT_RECEIVED: { label: 'Logística', tone: 't-purple' },
   FEE_OVERCHARGE: { label: 'Tarifas', tone: 't-gold' },
   RETURN_NOT_RECEIVED: { label: 'Devoluções', tone: 't-green' },
+  ML_WAREHOUSE_LOSS: { label: 'Estoque', tone: 't-blue' },
+  ML_WAREHOUSE_DAMAGE: { label: 'Estoque', tone: 't-blue' },
+  ERP_INBOUND_GAP: { label: 'Estoque', tone: 't-blue' },
+  ML_TRANSIT_LOSS: { label: 'Logística', tone: 't-purple' },
+  SHOPEE_LOST_NO_CREDIT: { label: 'Logística', tone: 't-purple' },
+  ML_FREIGHT_OVERCHARGE: { label: 'Tarifas', tone: 't-gold' },
+  SHOPEE_FREIGHT_OVERCHARGE: { label: 'Tarifas', tone: 't-gold' },
+  ML_COMMISSION_OVERCHARGE: { label: 'Tarifas', tone: 't-gold' },
+  ML_RETURN_NOT_RESTOCKED: { label: 'Devoluções', tone: 't-green' },
+  ML_RETURN_DAMAGED: { label: 'Devoluções', tone: 't-green' },
+  SHOPEE_PAYOUT_SHORTFALL: { label: 'Repasses', tone: 't-green' },
+  ERP_UNSETTLED_SALE: { label: 'Repasses', tone: 't-green' },
 };
 
 export const TYPE_LABEL: Record<string, string> = {
@@ -24,6 +36,18 @@ export const TYPE_LABEL: Record<string, string> = {
   REMOVAL_NOT_RECEIVED: 'Remoção não entregue',
   FEE_OVERCHARGE: 'Tarifa cobrada a maior',
   RETURN_NOT_RECEIVED: 'Devolução não recebida',
+  ML_WAREHOUSE_LOSS: 'Extravio no centro de distribuição',
+  ML_WAREHOUSE_DAMAGE: 'Avaria no centro de distribuição',
+  ML_TRANSIT_LOSS: 'Extravio em trânsito',
+  ML_FREIGHT_OVERCHARGE: 'Frete por peso cubado indevido',
+  ML_RETURN_NOT_RESTOCKED: 'Devolução sem retorno do produto',
+  ML_RETURN_DAMAGED: 'Devolução com produto avariado',
+  ML_COMMISSION_OVERCHARGE: 'Comissão ou tarifa acima da regra',
+  SHOPEE_LOST_NO_CREDIT: 'Pedido extraviado sem crédito',
+  SHOPEE_PAYOUT_SHORTFALL: 'Repasse menor que o esperado',
+  SHOPEE_FREIGHT_OVERCHARGE: 'Frete por cubagem indevida',
+  ERP_INBOUND_GAP: 'Furo de inventário no recebimento',
+  ERP_UNSETTLED_SALE: 'Venda faturada sem repasse',
 };
 
 export const CLAIM_STATUS: Record<string, { label: string; tone: Tone }> = {
@@ -85,6 +109,8 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   DOCUMENTO_BAIXADO: 'Documento baixado',
   MEMBRO_CONVIDADO: 'Membro convidado',
   MEMBRO_ALTERADO: 'Acesso de membro alterado',
+  DOSSIE_EXPORTADO: 'Dossiê exportado',
+  PLANILHA_ERP_IMPORTADA: 'Planilha do ERP importada',
 };
 
 export const activityLabel = (action: string): string => {

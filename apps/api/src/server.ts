@@ -9,6 +9,7 @@ import type { Config } from './config';
 import type { Db } from './db';
 import { AppError, forbidden, unauthorized } from './errors';
 import { consoleMailer, type Mailer } from './mailer';
+import { dossierRoutes } from './routes/dossiers';
 import { portalRoutes } from './routes/portal';
 import { safeEqual } from './security/crypto';
 
@@ -97,6 +98,7 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
   app.get('/api/health', async () => ({ status: 'ok' }));
   await authRoutes(app, { db, config, mailer, cookieName, requireAuth });
   await portalRoutes(app, { db, config, mailer, requireAuth });
+  await dossierRoutes(app, { db, requireAuth });
 
   return app;
 }

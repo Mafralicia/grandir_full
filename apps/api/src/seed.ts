@@ -44,6 +44,18 @@ transaction(db, () => {
 const scope = new TenantScope(db, tenantId);
 const summary = await runStoreAudit(scope, config, storeId);
 simulateDemoHistory(scope, storeId);
+
+// Lojas brasileiras: ficam com as divergências em aberto, prontas para virar dossiê.
+for (const [name, marketplace, connector] of [
+  ['Casa Aurora — Mercado Livre', 'mercadolivre', 'mercadolivre-demo'],
+  ['Casa Aurora — Shopee', 'shopee', 'shopee-demo'],
+]) {
+  const id = randomUUID();
+  db.prepare("INSERT INTO stores (id, tenant_id, name, marketplace, region, connector, created_at) VALUES (?, ?, ?, ?, 'BR', ?, ?)").run(
+    id, tenantId, name, marketplace, connector, createdAt,
+  );
+  await runStoreAudit(scope, config, id);
+}
 db.close();
 
 const credentialsPath = join(dirname(config.databasePath), 'demo-credentials.txt');

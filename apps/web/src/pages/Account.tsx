@@ -72,11 +72,32 @@ export function Stores() {
                 <tbody>
                   {data.stores.map((store) => (
                     <tr key={store.id}>
-                      <td><div className="strong">{store.name}</div>{store.connector === 'demo' && <Badge tone="warn">Dados de demonstração</Badge>}</td>
+                      <td><div className="strong">{store.name}</div>{store.connector.includes('demo') && <Badge tone="warn">Dados de demonstração</Badge>}</td>
                       <td>{MARKETPLACE_LABEL[store.marketplace]} · {store.region}</td>
                       <td className="nowrap">{store.lastAuditAt ? dateTime(store.lastAuditAt) : '—'}</td>
                       <td className="right num">{integer(store.discrepancyCount)}</td>
                       <td className="right">
+                        {can('ADMIN') && store.connector !== 'demo' && (
+                          <label className="btn ghost sm" style={{ marginRight: 6 }} title="CSV exportado do Bling, Tiny ou Omie com SKU, peso e medidas">
+                            Planilha do ERP
+                            <input
+                              type="file"
+                              accept=".csv,text/csv"
+                              hidden
+                              disabled={busy}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                event.target.value = '';
+                                if (!file) return;
+                                void run(async () => {
+                                  const result = await api<{ imported: number; errors: unknown[] }>(`/stores/${store.id}/erp-products`, { method: 'PUT', file, contentType: 'text/csv' });
+                                  await reload();
+                                  if (result.errors.length) throw new Error(`${result.imported} produtos importados; ${result.errors.length} linhas ignoradas por dados inválidos.`);
+                                }, 'Cadastro do ERP importado e auditoria refeita.');
+                              }}
+                            />
+                          </label>
+                        )}
                         {can('ANALYST') && (
                           <button
                             className="btn ghost sm"
@@ -99,8 +120,9 @@ export function Stores() {
           <form className="card card-pad stack" onSubmit={connect}>
             <h3 style={{ fontSize: 16 }}>Conectar loja</h3>
             <div className="alert info small">
-              Neste ambiente a conexão usa o <b>conector de demonstração</b>: a loja recebe um ano de operação sintética para você
-              avaliar a auditoria. A integração com a API oficial de cada marketplace depende de credenciais de parceiro.
+              Neste ambiente a conexão usa <b>dados de demonstração</b>: a loja recebe uma operação sintética para você avaliar a
+              auditoria. Mercado Livre e Shopee usam as regras brasileiras (frete cubado, comissão, repasse, devoluções e NF-e).
+              A integração com a API oficial de cada marketplace depende de credenciais de parceiro.
             </div>
             <label className="field"><span>Nome da loja</span>
               <input className="input" required minLength={2} maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>

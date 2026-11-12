@@ -21,6 +21,8 @@ interface Options {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT';
   body?: unknown;
   file?: Blob;
+  /** Tipo do arquivo enviado; padrão: binário genérico. */
+  contentType?: string;
 }
 
 export async function api<T = unknown>(path: string, options: Options = {}): Promise<T> {
@@ -28,7 +30,7 @@ export async function api<T = unknown>(path: string, options: Options = {}): Pro
   const headers: Record<string, string> = {};
   let body: BodyInit | undefined;
   if (options.file) {
-    headers['Content-Type'] = 'application/octet-stream';
+    headers['Content-Type'] = options.contentType ?? 'application/octet-stream';
     body = options.file;
   } else if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';

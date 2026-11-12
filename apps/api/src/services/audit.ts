@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BALANCE_REFERENCE_PREFIX, runAudit } from '@grandir/engines';
+import { BALANCE_REFERENCE_PREFIX, type ErpProduct } from '@grandir/engines';
 import type { Config } from '../config';
 import { connectors } from '../connectors/index';
 import { nowIso } from '../db';
@@ -38,8 +38,12 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
   if (!connector) throw badRequest('O conector desta loja não está disponível neste ambiente.');
 
   const startedAt = nowIso();
-  const input = await connector.fetchAuditInput(
+  const erpProducts = scope
+    .all<{ product_json: string }>('SELECT product_json FROM erp_products WHERE tenant_id = :tenantId AND store_id = :storeId', { storeId })
+    .map((row) => JSON.parse(row.product_json) as ErpProduct);
+  const result = await connector.audit(
     {
+      erpProducts,
       id: store.id,
       createdAt: store.created_at,
       marketplace: store.marketplace,
@@ -48,7 +52,6 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
     },
     startedAt,
   );
-  const result = runAudit(input);
 
   return scope.transaction(() => {
     const known = new Map(
@@ -75,11 +78,12 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
         quantity: d.quantity,
         value: d.estimatedValueCents,
         evidence: JSON.stringify(d.evidence),
+        details: d.details ? JSON.stringify(d.details) : null,
       };
       if (existing) {
         if (existing.status === 'OPEN') {
           scope.run(
-            `UPDATE discrepancies SET quantity = :quantity, estimated_value_cents = :value, evidence_json = :evidence
+            `UPDATE discrepancies SET quantity = :quantity, estimated_value_cents = :value, evidence_json = :evidence, details_json = :details
               WHERE tenant_id = :tenantId AND id = :id`,
             { ...values, id: existing.id },
           );
@@ -89,9 +93,9 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
       if (d.referenceId.startsWith(BALANCE_REFERENCE_PREFIX) && unresolvedBalanceSkus.has(d.sku)) continue;
       scope.run(
         `INSERT INTO discrepancies (id, tenant_id, store_id, fingerprint, type, sku, product_name, quantity,
-                                    estimated_value_cents, reference_id, evidence_json, occurred_at, detected_at, expires_at)
+                                    estimated_value_cents, reference_id, evidence_json, details_json, occurred_at, detected_at, expires_at)
          VALUES (:id, :tenantId, :storeId, :fingerprint, :type, :sku, :productName, :quantity,
-                 :value, :referenceId, :evidence, :occurredAt, :detectedAt, :expiresAt)`,
+                 :value, :referenceId, :evidence, :details, :occurredAt, :detectedAt, :expiresAt)`,
         {
           ...values,
           id: randomUUID(),
@@ -129,12 +133,12 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
 
     const summary: AuditRunSummary = {
       id: randomUUID(),
-      eventsScanned: result.stats.eventsScanned,
+      eventsScanned: result.eventsScanned,
       discrepanciesFound: result.discrepancies.length,
       newDiscrepancies,
       valueFoundCents: result.discrepancies.reduce((sum, d) => sum + d.estimatedValueCents, 0),
-      pendingCount: result.stats.pendingCount,
-      expiredCount: result.stats.expiredCount,
+      pendingCount: result.pendingCount,
+      expiredCount: result.expiredCount,
     };
     const finishedAt = nowIso();
     scope.run(

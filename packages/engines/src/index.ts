@@ -7,3 +7,8 @@ export * from './fees';
 export * from './claims';
 export * from './billing';
 export { addDays, daysBetween } from './util';
+export * from './br/model';
+export { REFERENCE_TABLES, brl, type BrTables, type CommissionRule, type FreightTier } from './br/tables';
+export * from './br/rules';
+export * from './evidence/dossier';
+export { TYPE_LABELS } from './evidence/labels';

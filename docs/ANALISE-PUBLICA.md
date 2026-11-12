@@ -32,6 +32,10 @@ Home, "como ajudamos", sobre, recursos (blog, vídeo, podcast, eventos, guias), 
 - **Preço:** sem adesão nem mensalidade; taxa de sucesso sobre o valor recuperado.
 - **Segmentos:** pequenos sellers, marcas enterprise e agências.
 
+### O que não está exposto
+
+Uma segunda verificação procurou bundles JavaScript, definições de rotas, schemas de estado e contratos de API do portal. Não há nenhum: as telas públicas de acesso são HTML renderizado no servidor e carregam apenas scripts de marketing de terceiros. Módulos internos, modelos de dados, painéis e estados de disputa da referência não são observáveis sem autenticação — e não foram buscados por outro meio. Tudo o que a Grandir tem nessas áreas, inclusive o núcleo brasileiro (Mercado Livre, Shopee e ERP), é projeto próprio.
+
 ## Como isso orientou a Grandir
 
 | Requisito identificado | Decisão na Grandir |

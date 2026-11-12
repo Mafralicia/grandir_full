@@ -107,7 +107,7 @@ export async function authRoutes(app: FastifyInstance, deps: AuthDeps): Promise<
       'SELECT name, currency, fee_rate_bps AS feeRateBps, country FROM tenants WHERE id = :tenantId',
     );
     const stores = auth.scope.get<{ total: number; demo: number }>(
-      "SELECT COUNT(*) AS total, COALESCE(SUM(connector = 'demo'), 0) AS demo FROM stores WHERE tenant_id = :tenantId",
+      "SELECT COUNT(*) AS total, COALESCE(SUM(connector LIKE '%demo%'), 0) AS demo FROM stores WHERE tenant_id = :tenantId",
     )!;
     return {
       user: auth.user,

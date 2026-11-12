@@ -1,4 +1,4 @@
-import { Boxes, LayoutDashboard, MessagesSquare, ReceiptText, ScanSearch, ShieldCheck, Store, Users, type LucideIcon } from 'lucide-react';
+import { Boxes, FolderCheck, LayoutDashboard, MessagesSquare, ReceiptText, ScanSearch, ShieldCheck, Store, Users, type LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth, type Role } from '../auth';
@@ -12,6 +12,7 @@ const NAV: { group: string; items: { to: string; label: string; end?: boolean; r
       { to: '/app', end: true, label: 'Visão geral', icon: LayoutDashboard },
       { to: '/app/conciliacao', label: 'Conciliação de estoque', icon: Boxes },
       { to: '/app/divergencias', label: 'Divergências', icon: ScanSearch },
+      { to: '/app/dossies', label: 'Dossiês', icon: FolderCheck },
       { to: '/app/chamados', label: 'Chamados', icon: MessagesSquare },
     ],
   },

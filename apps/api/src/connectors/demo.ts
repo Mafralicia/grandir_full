@@ -3,6 +3,7 @@ import {
   addDays,
   buildReconciliation,
   expectedFeeCents,
+  runAudit,
   type AuditInput,
   type CatalogItem,
   type LedgerEvent,
@@ -209,7 +210,14 @@ export function generateDemoData(store: StoreRef, asOf: string): AuditInput {
 export const demoConnector: MarketplaceConnector = {
   id: 'demo',
   label: 'Ambiente de demonstração',
-  async fetchAuditInput(store, asOf) {
-    return generateDemoData(store, asOf);
+  async audit(store, asOf) {
+    const result = runAudit(generateDemoData(store, asOf));
+    return {
+      discrepancies: result.discrepancies,
+      reconciliation: result.reconciliation,
+      eventsScanned: result.stats.eventsScanned,
+      pendingCount: result.stats.pendingCount,
+      expiredCount: result.stats.expiredCount,
+    };
   },
 };
