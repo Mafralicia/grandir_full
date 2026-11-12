@@ -131,6 +131,28 @@ CREATE TABLE IF NOT EXISTS erp_products (
   PRIMARY KEY (tenant_id, store_id, sku)
 );
 
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state_hash  TEXT PRIMARY KEY,
+  tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  store_id    TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  marketplace TEXT NOT NULL,
+  expires_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS nfe_documents (
+  tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  store_id    TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  access_key  TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  issued_at   TEXT NOT NULL,
+  cfop        TEXT NOT NULL,
+  total_cents INTEGER NOT NULL,
+  doc_json    TEXT NOT NULL,
+  imported_at TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, store_id, access_key)
+);
+
 CREATE TABLE IF NOT EXISTS claims (
   id                  TEXT PRIMARY KEY,
   tenant_id           TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

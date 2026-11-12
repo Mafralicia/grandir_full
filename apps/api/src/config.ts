@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import type { IntegrationApps } from './integrations/tokens';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -14,6 +15,13 @@ const schema = z.object({
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
   DATA_ENCRYPTION_KEY: z.string().optional(),
   DEFAULT_FEE_RATE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
+  ML_CLIENT_ID: z.string().optional(),
+  ML_CLIENT_SECRET: z.string().optional(),
+  SHOPEE_PARTNER_ID: z.string().optional(),
+  SHOPEE_PARTNER_KEY: z.string().optional(),
+  SHOPEE_API_HOST: z.string().url().default('https://openplatform.shopee.com.br'),
+  /** Origem pública que recebe o retorno do OAuth; padrão: a primeira origem do front-end. */
+  OAUTH_REDIRECT_BASE: z.string().url().optional(),
 });
 
 export interface Config {
@@ -26,6 +34,7 @@ export interface Config {
   webOrigins: string[];
   encryptionKey: Buffer;
   defaultFeeRateBps: number;
+  integrations: IntegrationApps;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -50,6 +59,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     encryptionKey = createHash('sha256').update('grandir-chave-somente-desenvolvimento').digest();
   }
 
+  const webOrigins = parsed.WEB_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean);
+  const redirectBase = (parsed.OAUTH_REDIRECT_BASE ?? webOrigins[0]).replace(/\/$/, '');
+  const integrations: IntegrationApps = {
+    mercadolivre: parsed.ML_CLIENT_ID && parsed.ML_CLIENT_SECRET
+      ? { clientId: parsed.ML_CLIENT_ID, clientSecret: parsed.ML_CLIENT_SECRET, redirectUri: `${redirectBase}/api/oauth/mercadolivre/callback` }
+      : null,
+    shopee: parsed.SHOPEE_PARTNER_ID && parsed.SHOPEE_PARTNER_KEY
+      ? { partnerId: parsed.SHOPEE_PARTNER_ID, partnerKey: parsed.SHOPEE_PARTNER_KEY, host: parsed.SHOPEE_API_HOST.replace(/\/$/, ''), redirectUri: `${redirectBase}/api/oauth/shopee/callback` }
+      : null,
+  };
+
   return {
     env: parsed.NODE_ENV,
     isProd,
@@ -57,7 +77,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: parsed.HOST,
     databasePath: parsed.DATABASE_PATH ?? resolve(repoRoot, 'data/grandir.db'),
     uploadDir: parsed.UPLOAD_DIR ?? resolve(repoRoot, 'data/uploads'),
-    webOrigins: parsed.WEB_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean),
+    webOrigins,
+    integrations,
     encryptionKey,
     defaultFeeRateBps: parsed.DEFAULT_FEE_RATE_BPS,
   };

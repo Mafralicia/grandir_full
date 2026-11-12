@@ -10,6 +10,7 @@ import type { Db } from './db';
 import { AppError, forbidden, unauthorized } from './errors';
 import { consoleMailer, type Mailer } from './mailer';
 import { dossierRoutes } from './routes/dossiers';
+import { oauthRoutes } from './routes/oauth';
 import { portalRoutes } from './routes/portal';
 import { safeEqual } from './security/crypto';
 
@@ -81,6 +82,10 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
     if (status === 429) {
       return reply.status(429).send({ error: { code: 'LIMITE_EXCEDIDO', message: 'Muitas requisições. Aguarde um instante.' } });
     }
+    if (error.name === 'IntegrationError') {
+      request.log.warn({ status }, error.message);
+      return reply.status(502).send({ error: { code: 'MARKETPLACE_INDISPONIVEL', message: `Não foi possível falar com o marketplace: ${error.message}` } });
+    }
     if (status === 413) {
       return reply.status(413).send({ error: { code: 'ARQUIVO_GRANDE', message: 'O arquivo excede o limite de 5 MB.' } });
     }
@@ -99,6 +104,7 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
   await authRoutes(app, { db, config, mailer, cookieName, requireAuth });
   await portalRoutes(app, { db, config, mailer, requireAuth });
   await dossierRoutes(app, { db, requireAuth });
+  await oauthRoutes(app, { db, config, requireAuth });
 
   return app;
 }

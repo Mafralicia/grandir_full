@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { createPasswordResetToken, logActivity, revokeUserSessions, ROLE_RANK, type Role } from '../auth/service';
 import type { Config } from '../config';
 import { CONNECTOR_FOR, MARKETPLACES } from '../connectors/index';
+import { NfeError, parseNfeXml, toEngineInvoices } from '../connectors/erp/nfe';
 import { parseErpProducts } from '../connectors/erp/sheet';
 import { nowIso, type Db } from '../db';
 import { badRequest, conflict, forbidden, notFound } from '../errors';
@@ -143,7 +144,9 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
       stores: scope.all(
         `SELECT s.id, s.name, s.marketplace, s.region, s.connector, s.status,
                 s.last_audit_at AS lastAuditAt, s.created_at AS createdAt,
-                (SELECT COUNT(*) FROM discrepancies d WHERE d.tenant_id = s.tenant_id AND d.store_id = s.id) AS discrepancyCount
+                (SELECT COUNT(*) FROM discrepancies d WHERE d.tenant_id = s.tenant_id AND d.store_id = s.id) AS discrepancyCount,
+                (SELECT COUNT(*) FROM nfe_documents n WHERE n.tenant_id = s.tenant_id AND n.store_id = s.id) AS nfeCount,
+                (SELECT COUNT(*) FROM erp_products p WHERE p.tenant_id = s.tenant_id AND p.store_id = s.id) AS erpProductCount
            FROM stores s WHERE s.tenant_id = :tenantId ORDER BY s.created_at`,
       ),
       runs: scope.all(
@@ -178,7 +181,8 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
       { id: storeId, ...body, connector: CONNECTOR_FOR[body.marketplace], createdAt: nowIso() },
     );
     const summary = await runStoreAudit(scope, config, storeId);
-    simulateDemoHistory(scope, storeId);
+    // Só a loja genérica ganha histórico simulado; as brasileiras ficam com as divergências em aberto, prontas para virar dossiê.
+    if (CONNECTOR_FOR[body.marketplace] === 'demo') simulateDemoHistory(scope, storeId);
     audit(request, 'LOJA_CONECTADA', body.name);
     reply.status(201);
     return { id: storeId, audit: summary };
@@ -216,6 +220,45 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
     const summary = await runStoreAudit(scope, config, id);
     audit(request, 'PLANILHA_ERP_IMPORTADA', `${sheet.products.length} produtos`);
     return { imported: sheet.products.length, errors: sheet.errors.slice(0, 20), audit: summary };
+  });
+
+  // Importação em lote de XML de NF-e (modelo 55): notas de entrada, remessa, retorno, venda e devolução.
+  app.put('/api/stores/:id/nfe', { preHandler: atLeast('ADMIN'), bodyLimit: MAX_UPLOAD_BYTES }, async (request) => {
+    const { scope } = request.auth!;
+    const { id } = idParams.parse(request.params);
+    const body = z
+      .object({ files: z.array(z.object({ name: z.string().max(200), xml: z.string().min(1) })).min(1, 'Envie ao menos um XML.').max(300) })
+      .parse(request.body);
+    if (!scope.get('SELECT id FROM stores WHERE tenant_id = :tenantId AND id = :id', { id })) throw notFound('Loja não encontrada.');
+
+    const importedAt = nowIso();
+    const byKind: Record<string, number> = {};
+    const errors: { file: string; reason: string }[] = [];
+    let imported = 0;
+    let duplicates = 0;
+    scope.transaction(() => {
+      for (const file of body.files) {
+        try {
+          const nfe = parseNfeXml(file.xml);
+          const changed = scope.run(
+            `INSERT INTO nfe_documents (tenant_id, store_id, access_key, kind, issued_at, cfop, total_cents, doc_json, imported_at)
+             VALUES (:tenantId, :storeId, :key, :kind, :issuedAt, :cfop, :total, :json, :importedAt)
+             ON CONFLICT (tenant_id, store_id, access_key) DO NOTHING`,
+            { storeId: id, key: nfe.accessKey, kind: nfe.kind, issuedAt: nfe.issuedAt, cfop: nfe.cfop, total: nfe.totals.invoiceCents, json: JSON.stringify(toEngineInvoices(nfe)), importedAt },
+          );
+          if (changed) {
+            imported += 1;
+            byKind[nfe.kind] = (byKind[nfe.kind] ?? 0) + 1;
+          } else duplicates += 1;
+        } catch (error) {
+          if (!(error instanceof NfeError)) throw error;
+          errors.push({ file: file.name, reason: error.message });
+        }
+      }
+    });
+    const summary = imported > 0 ? await runStoreAudit(scope, config, id) : null;
+    audit(request, 'NFE_IMPORTADAS', `${imported} notas`);
+    return { imported, duplicates, byKind, errors: errors.slice(0, 50), audit: summary };
   });
 
   app.get('/api/reconciliation', { preHandler: atLeast('VIEWER') }, async (request) => {

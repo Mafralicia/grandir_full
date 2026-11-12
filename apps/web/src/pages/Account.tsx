@@ -31,7 +31,7 @@ const Note = ({ message }: { message: Message }) =>
 // ───────────────────────── Lojas ─────────────────────────
 
 interface StoresData {
-  stores: { id: string; name: string; marketplace: string; region: string; connector: string; lastAuditAt: string | null; discrepancyCount: number }[];
+  stores: { id: string; name: string; marketplace: string; region: string; connector: string; lastAuditAt: string | null; discrepancyCount: number; nfeCount: number; erpProductCount: number }[];
   runs: { id: string; storeName: string; finishedAt: string; eventsScanned: number; discrepanciesFound: number; newDiscrepancies: number; valueFoundCents: number; pendingCount: number; expiredCount: number }[];
 }
 
@@ -55,6 +55,7 @@ export function Stores() {
   return (
     <>
       <PageHead title="Lojas" subtitle="Cada loja conectada é auditada de forma independente." />
+      {params.get('conectada') && <div className="alert ok">Conta autorizada. A próxima auditoria já usa os dados reais do marketplace.</div>}
       {params.get('boas-vindas') && data.stores.length === 0 && (
         <div className="alert ok">Conta criada. Agora conecte sua primeira loja para a auditoria começar.</div>
       )}
@@ -72,20 +73,30 @@ export function Stores() {
                 <tbody>
                   {data.stores.map((store) => (
                     <tr key={store.id}>
-                      <td><div className="strong">{store.name}</div>{store.connector.includes('demo') && <Badge tone="warn">Dados de demonstração</Badge>}</td>
-                      <td>{MARKETPLACE_LABEL[store.marketplace]} · {store.region}</td>
+                      <td><div className="strong">{store.name}</div>{store.connector.includes('demo') ? <Badge tone="warn">Dados de demonstração</Badge> : <Badge tone="success">Conta conectada</Badge>}</td>
+                      <td>{MARKETPLACE_LABEL[store.marketplace]} · {store.region}<div className="muted small">{integer(store.erpProductCount)} produtos do ERP · {integer(store.nfeCount)} NF-e</div></td>
                       <td className="nowrap">{store.lastAuditAt ? dateTime(store.lastAuditAt) : '—'}</td>
                       <td className="right num">{integer(store.discrepancyCount)}</td>
                       <td className="right">
+                        <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
                         {can('ADMIN') && store.connector !== 'demo' && (
-                          <label className="btn ghost sm" style={{ marginRight: 6 }} title="CSV exportado do Bling, Tiny ou Omie com SKU, peso e medidas">
-                            Planilha do ERP
-                            <input
-                              type="file"
-                              accept=".csv,text/csv"
-                              hidden
-                              disabled={busy}
-                              onChange={(event) => {
+                          <>
+                            {store.connector.includes('demo') && (
+                              <button
+                                className="btn sm"
+                                disabled={busy}
+                                title="Autoriza a Grandir a ler os dados reais desta conta"
+                                onClick={() => run(async () => {
+                                  const { url } = await api<{ url: string }>(`/stores/${store.id}/oauth/start`, { method: 'POST' });
+                                  window.location.assign(url);
+                                }, 'Redirecionando para o marketplace…')}
+                              >
+                                Conectar conta
+                              </button>
+                            )}
+                            <label className="btn ghost sm" title="CSV exportado do Bling, Tiny ou Omie com SKU, peso e medidas">
+                              Planilha do ERP
+                              <input type="file" accept=".csv,text/csv" hidden disabled={busy} onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 event.target.value = '';
                                 if (!file) return;
@@ -94,9 +105,24 @@ export function Stores() {
                                   await reload();
                                   if (result.errors.length) throw new Error(`${result.imported} produtos importados; ${result.errors.length} linhas ignoradas por dados inválidos.`);
                                 }, 'Cadastro do ERP importado e auditoria refeita.');
-                              }}
-                            />
-                          </label>
+                              }} />
+                            </label>
+                            <label className="btn ghost sm" title="Arquivos XML de NF-e modelo 55: entrada, remessa, retorno, venda e devolução">
+                              XML de NF-e
+                              <input type="file" accept=".xml,text/xml,application/xml" multiple hidden disabled={busy} onChange={(event) => {
+                                const files = [...(event.target.files ?? [])];
+                                event.target.value = '';
+                                if (files.length === 0) return;
+                                void run(async () => {
+                                  const payload = await Promise.all(files.map(async (file) => ({ name: file.name, xml: await file.text() })));
+                                  const result = await api<{ imported: number; duplicates: number; errors: { file: string; reason: string }[] }>(`/stores/${store.id}/nfe`, { method: 'PUT', body: { files: payload } });
+                                  await reload();
+                                  if (result.errors.length) throw new Error(`${result.imported} notas importadas; ${result.errors.length} recusadas. Primeira: ${result.errors[0].file} — ${result.errors[0].reason}`);
+                                  if (result.imported === 0) throw new Error('Nenhuma nota nova: todas já estavam importadas.');
+                                }, 'Notas fiscais importadas e auditoria refeita.');
+                              }} />
+                            </label>
+                          </>
                         )}
                         {can('ANALYST') && (
                           <button
@@ -107,6 +133,7 @@ export function Stores() {
                             Auditar agora
                           </button>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))}

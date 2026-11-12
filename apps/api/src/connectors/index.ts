@@ -1,4 +1,6 @@
-import type { Discrepancy, ErpProduct, SkuReconciliation } from '@grandir/engines';
+import type { Discrepancy, ErpProduct, Nfe, SkuReconciliation } from '@grandir/engines';
+import type { IntegrationApps } from '../integrations/tokens';
+import { mercadoLivreLiveConnector, shopeeLiveConnector } from './br/liveSources';
 import { mercadoLivreConnector } from './br/mercadolivre';
 import { shopeeConnector } from './br/shopee';
 import { demoConnector } from './demo';
@@ -12,6 +14,10 @@ export interface StoreRef {
   credentials: Record<string, string> | null;
   /** Cadastro de produtos importado do ERP do seller; prevalece sobre o do marketplace. */
   erpProducts: ErpProduct[];
+  /** Notas fiscais importadas dos XMLs do seller. */
+  invoices: Nfe[];
+  /** Credenciais dos aplicativos registrados nos marketplaces (para assinar chamadas). */
+  apps: IntegrationApps;
 }
 
 export interface AuditOutcome {
@@ -34,13 +40,13 @@ export interface MarketplaceConnector {
 }
 
 export const connectors: Record<string, MarketplaceConnector> = Object.fromEntries(
-  [demoConnector, mercadoLivreConnector, shopeeConnector].map((connector) => [connector.id, connector]),
+  [demoConnector, mercadoLivreConnector, shopeeConnector, mercadoLivreLiveConnector, shopeeLiveConnector].map((connector) => [connector.id, connector]),
 );
 
 export const MARKETPLACES = ['amazon', 'mercadolivre', 'shopee', 'magalu'] as const;
 export type Marketplace = (typeof MARKETPLACES)[number];
 
-/** Conector usado para cada marketplace neste ambiente. Todos operam com dados sintéticos. */
+/** Conector inicial de cada marketplace: dados sintéticos, até a loja autorizar a conta real por OAuth. */
 export const CONNECTOR_FOR: Record<Marketplace, string> = {
   amazon: demoConnector.id,
   magalu: demoConnector.id,

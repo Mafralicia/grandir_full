@@ -148,6 +148,7 @@ export const brDemoSource: BrDataSource = {
     reconcileBrStock(input).forEach((row, index) => {
       input.marketplaceStock[row.sku] = row.expectedEnding - (index === 3 || index === 8 ? int(2, 6) : 0);
     });
+    input.invoices.push(...store.invoices);
     return input;
   },
 };

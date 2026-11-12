@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { BALANCE_REFERENCE_PREFIX, type ErpProduct } from '@grandir/engines';
+import { BALANCE_REFERENCE_PREFIX, type ErpProduct, type Nfe } from '@grandir/engines';
+import { freshTokens } from '../integrations/tokens';
 import type { Config } from '../config';
 import { connectors } from '../connectors/index';
 import { nowIso } from '../db';
@@ -41,14 +42,24 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
   const erpProducts = scope
     .all<{ product_json: string }>('SELECT product_json FROM erp_products WHERE tenant_id = :tenantId AND store_id = :storeId', { storeId })
     .map((row) => JSON.parse(row.product_json) as ErpProduct);
+  const invoices = scope
+    .all<{ doc_json: string }>('SELECT doc_json FROM nfe_documents WHERE tenant_id = :tenantId AND store_id = :storeId', { storeId })
+    .flatMap((row) => JSON.parse(row.doc_json) as Nfe[]);
+  // Conectores reais recebem tokens válidos; a renovação acontece aqui, antes da coleta.
+  const live = store.connector === 'mercadolivre' || store.connector === 'shopee';
+  const liveTokens = live ? await freshTokens(scope, config, storeId, store.connector as 'mercadolivre' | 'shopee') : null;
   const result = await connector.audit(
     {
       erpProducts,
+      invoices,
+      apps: config.integrations,
       id: store.id,
       createdAt: store.created_at,
       marketplace: store.marketplace,
       region: store.region,
-      credentials: store.credentials_enc ? JSON.parse(decrypt(store.credentials_enc, config.encryptionKey)) : null,
+      credentials: liveTokens
+        ? (liveTokens as unknown as Record<string, string>)
+        : store.credentials_enc ? JSON.parse(decrypt(store.credentials_enc, config.encryptionKey)) : null,
     },
     startedAt,
   );

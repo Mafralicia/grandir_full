@@ -286,7 +286,9 @@ function auditInboundGaps(ctx: Context): void {
     if (nfe.kind !== 'REMESSA' || !nfe.inboundId) continue;
     if (daysBetween(nfe.issuedAt, ctx.input.asOf) < ctx.tables.inboundWaitDays) continue;
     const receipt = received.get(`${nfe.inboundId}|${nfe.sku}`);
-    const gap = nfe.quantity - (receipt?.qty ?? 0);
+    // Sem registro de conferência do lote não há como afirmar que houve falta.
+    if (!receipt) continue;
+    const gap = nfe.quantity - receipt.qty;
     if (gap <= 0) continue;
     const unitCents = Math.round(nfe.totalCents / nfe.quantity);
     // Ocorrências que o operador já indenizou para este lote abatem a diferença.
