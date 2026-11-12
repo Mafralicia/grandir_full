@@ -151,6 +151,35 @@ CREATE TABLE IF NOT EXISTS claims (
 );
 CREATE INDEX IF NOT EXISTS idx_claims_tenant ON claims(tenant_id, status);
 
+CREATE TABLE IF NOT EXISTS dossier_cases (
+  id             TEXT PRIMARY KEY,
+  tenant_id      TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  store_id       TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  code           TEXT NOT NULL,
+  type           TEXT NOT NULL,
+  bucket_label   TEXT NOT NULL,
+  status         TEXT NOT NULL CHECK (status IN ('RASCUNHO','ABERTO','EM_ANALISE','DEFERIDO','INDEFERIDO','PAGO')),
+  protocol       TEXT,
+  opened_at      TEXT,
+  claimed_cents  INTEGER NOT NULL,
+  approved_cents INTEGER,
+  refunded_cents INTEGER,
+  created_at     TEXT NOT NULL,
+  updated_at     TEXT NOT NULL,
+  UNIQUE (tenant_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS case_events (
+  id          TEXT PRIMARY KEY,
+  tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  case_id     TEXT NOT NULL REFERENCES dossier_cases(id) ON DELETE CASCADE,
+  at          TEXT NOT NULL,
+  actor       TEXT NOT NULL,
+  from_status TEXT,
+  to_status   TEXT NOT NULL,
+  note        TEXT
+);
+
 CREATE TABLE IF NOT EXISTS claim_events (
   id          TEXT PRIMARY KEY,
   tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -218,6 +247,7 @@ export function openDb(path: string): Db {
   db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   db.exec(SCHEMA);
   addColumn(db, 'discrepancies', 'details_json', 'TEXT');
+  addColumn(db, 'claims', 'case_id', 'TEXT');
   return db;
 }
 

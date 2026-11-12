@@ -1,7 +1,13 @@
 import {
   addDays,
+  freightCents,
+  mlCommissionCents,
+  mlFixedFeeCents,
   reconcileBrStock,
   REFERENCE_TABLES,
+  shopeeCommissionCents,
+  shopeeTransactionCents,
+  versionAt,
   type BrAuditInput,
   type ErpProduct,
   type IncidentKind,
@@ -40,7 +46,6 @@ export const brDemoSource: BrDataSource = {
     let sequence = 0;
     const next = (prefix: string) => `${prefix}${String(++sequence).padStart(6, '0')}`;
     const isMl = marketplace === 'mercadolivre';
-    const { ml, shopee } = REFERENCE_TABLES;
 
     const products: ErpProduct[] = PRODUCTS.map(([sku, name, costCents, , weightG, lengthCm, widthCm, heightCm]) => ({
       sku, name, costCents, weightG, lengthCm, widthCm, heightCm, ean: `789${digits(10)}`,
@@ -64,28 +69,30 @@ export const brDemoSource: BrDataSource = {
 
       const cubicG = Math.round(((lengthCm * widthCm * heightCm) / 6000) * 1000);
       const realWeightG = Math.max(weightG, cubicG);
-      const freightTable = isMl ? ml.freight : shopee.freight;
-      const freightOf = (grams: number) => (freightTable.find((tier) => grams <= tier.maxG) ?? freightTable[freightTable.length - 1]).cents;
 
       for (let n = int(38, 52); n > 0; n--) {
         const daysBack = int(1, 120);
+        const saleDate = day(daysBack);
         const quantity = chance(0.85) ? 1 : 2;
         const grossCents = priceCents * quantity;
         const listingType = index % 2 === 0 ? 'premium' : 'classico';
         const billedWeightG = WRONG_WEIGHT[index] && daysBack <= 55 ? WRONG_WEIGHT[index] : realWeightG;
-        const shippingChargedCents = freightOf(billedWeightG);
 
+        // As cobranças seguem a tabela vigente na data de cada venda.
         let commissionCents: number;
         let feeCents: number;
+        let shippingChargedCents: number;
         if (isMl) {
-          const rule = ml.commissions.find((c) => c.categoryId === categoryId) ?? ml.defaultCommission;
-          // Em parte dos pedidos a comissão vem pela alíquota de outra categoria.
-          const rateBps = rule.rateBps[listingType] + (chance(0.06) ? 300 : 0);
-          commissionCents = Math.round((grossCents * rateBps) / 10_000);
-          feeCents = priceCents < ml.fixedFeeBelowCents ? ml.fixedFeeCents * quantity : 0;
+          const version = versionAt(REFERENCE_TABLES.ml, saleDate)!;
+          // Em parte dos pedidos a comissão vem três pontos acima da alíquota da categoria.
+          commissionCents = mlCommissionCents(version, categoryId, listingType, grossCents) + (chance(0.06) ? Math.round(grossCents * 0.03) : 0);
+          feeCents = mlFixedFeeCents(version, priceCents, quantity);
+          shippingChargedCents = freightCents(version, priceCents, billedWeightG);
         } else {
-          commissionCents = Math.min(Math.round((grossCents * shopee.commissionBps) / 10_000), shopee.commissionCapCents * quantity);
-          feeCents = Math.round((grossCents * shopee.transactionFeeBps) / 10_000);
+          const version = versionAt(REFERENCE_TABLES.shopee, saleDate)!;
+          commissionCents = shopeeCommissionCents(version, grossCents, quantity);
+          feeCents = shopeeTransactionCents(version, grossCents);
+          shippingChargedCents = freightCents(version, priceCents, billedWeightG);
         }
         const net = grossCents - commissionCents - feeCents - shippingChargedCents;
         const settledAt = daysBack > 9 && !chance(0.03) ? day(daysBack - 8) : null;
@@ -94,11 +101,11 @@ export const brDemoSource: BrDataSource = {
         const order: MarketplaceOrder = {
           marketplace, orderId: isMl ? `20000${digits(11)}` : `${digits(6)}${next('SP').slice(2)}`, shipmentId: digits(11),
           trackingCode: isMl ? `ME${digits(9)}BR` : `BR${digits(12)}`, itemId: isMl ? `MLB${digits(10)}` : digits(11),
-          sku, quantity, saleDate: day(daysBack), grossCents, categoryId, listingType, commissionCents, feeCents,
+          sku, quantity, saleDate, grossCents, categoryId, listingType, commissionCents, feeCents,
           shippingChargedCents, billedWeightG, settledAt, settledCents: settledAt ? net - shortfall : null,
         };
         input.orders.push(order);
-        input.invoices.push({ accessKey: digits(44), kind: 'VENDA', issuedAt: day(daysBack), sku, quantity, totalCents: grossCents, orderId: order.orderId });
+        input.invoices.push({ accessKey: digits(44), kind: 'VENDA', issuedAt: saleDate, sku, quantity, totalCents: grossCents, orderId: order.orderId });
       }
     });
 

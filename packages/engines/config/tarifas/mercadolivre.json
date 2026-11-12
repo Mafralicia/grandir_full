@@ -1,0 +1,75 @@
+{
+  "marketplace": "mercadolivre",
+  "aviso": "Nenhuma versão abaixo foi conferida na Central de Vendedores do Mercado Livre (as páginas oficiais não puderam ser lidas em 12/11/2026). Os valores vêm de fontes secundárias que divergem entre si. Confirme cada versão e mude \"verified\" para true antes de usar em contestações reais.",
+  "versions": [
+    {
+      "id": "ml-br-2025-01",
+      "effectiveFrom": "2025-01-01",
+      "effectiveTo": "2026-02-28",
+      "verified": false,
+      "sources": [
+        "https://nacao.digital/blog/taxas-do-mercado-livre/",
+        "https://ecarts.com.br/tecnologia/como-vender-no-mercado-livre-em-2026-tarifas-e-passo-a-passo/"
+      ],
+      "notes": "Comissão: fontes citam 10–14% (Clássico) e 15–19% (Premium) conforme a categoria; as três categorias listadas são exemplos dentro dessa faixa, não a tabela completa por categoria. Custo fixo abaixo de R$ 79: faixas citadas por fontes secundárias. Frete: apenas o divisor de cubagem (6.000) é consistente entre as fontes; os valores por peso são ilustrativos.",
+      "commissions": [
+        { "categoryId": "MLB-CASA", "label": "Casa, móveis e decoração", "classicoBps": 1150, "premiumBps": 1650 },
+        { "categoryId": "MLB-ELETRO", "label": "Eletrônicos, áudio e vídeo", "classicoBps": 1300, "premiumBps": 1800 },
+        { "categoryId": "MLB-ESPORTE", "label": "Esportes e fitness", "classicoBps": 1200, "premiumBps": 1700 }
+      ],
+      "defaultCommission": { "categoryId": "*", "label": "Demais categorias", "classicoBps": 1200, "premiumBps": 1700 },
+      "fixedFee": [
+        { "belowCents": 1250, "percentBps": 5000 },
+        { "belowCents": 2900, "cents": 625 },
+        { "belowCents": 5000, "cents": 650 },
+        { "belowCents": 7900, "cents": 675 }
+      ],
+      "cubicDivisor": 6000,
+      "freight": [
+        { "minPriceCents": 7900, "tiers": [
+          { "maxG": 300, "cents": 1235 }, { "maxG": 500, "cents": 1335 }, { "maxG": 1000, "cents": 1435 },
+          { "maxG": 2000, "cents": 1585 }, { "maxG": 5000, "cents": 1935 }, { "maxG": 9000, "cents": 2935 }, { "maxG": null, "cents": 4935 }
+        ] },
+        { "minPriceCents": 0, "tiers": [
+          { "maxG": 300, "cents": 565 }, { "maxG": 500, "cents": 595 }, { "maxG": 1000, "cents": 645 },
+          { "maxG": 2000, "cents": 695 }, { "maxG": 5000, "cents": 895 }, { "maxG": null, "cents": 1495 }
+        ] }
+      ]
+    },
+    {
+      "id": "ml-br-2026-03",
+      "effectiveFrom": "2026-03-01",
+      "effectiveTo": null,
+      "verified": false,
+      "sources": [
+        "https://nacao.digital/blog/taxas-do-mercado-livre/",
+        "https://especialistaemmarketplace.com.br/tabela-frete-mercado-livre-2026/",
+        "https://escudodepreco.com.br/tabela-de-frete-mercado-livre"
+      ],
+      "notes": "Fontes secundárias relatam revisão das tarifas de frete e do custo abaixo de R$ 79 em março de 2026 (custo operacional variável nos envios pela logística do Mercado Livre); os detalhes não foram confirmados. Frete: R$ 12,95 até 300 g na faixa de R$ 79–99,99 (reputação verde) e R$ 5,95 até 500 g na faixa baixa são citados por fontes; os demais degraus são ilustrativos. A tabela real varia também por reputação e por faixa de preço mais fina.",
+      "commissions": [
+        { "categoryId": "MLB-CASA", "label": "Casa, móveis e decoração", "classicoBps": 1150, "premiumBps": 1650 },
+        { "categoryId": "MLB-ELETRO", "label": "Eletrônicos, áudio e vídeo", "classicoBps": 1300, "premiumBps": 1800 },
+        { "categoryId": "MLB-ESPORTE", "label": "Esportes e fitness", "classicoBps": 1200, "premiumBps": 1700 }
+      ],
+      "defaultCommission": { "categoryId": "*", "label": "Demais categorias", "classicoBps": 1200, "premiumBps": 1700 },
+      "fixedFee": [
+        { "belowCents": 1250, "percentBps": 5000 },
+        { "belowCents": 2900, "cents": 625 },
+        { "belowCents": 5000, "cents": 650 },
+        { "belowCents": 7900, "cents": 675 }
+      ],
+      "cubicDivisor": 6000,
+      "freight": [
+        { "minPriceCents": 7900, "tiers": [
+          { "maxG": 300, "cents": 1295 }, { "maxG": 500, "cents": 1395 }, { "maxG": 1000, "cents": 1495 },
+          { "maxG": 2000, "cents": 1645 }, { "maxG": 5000, "cents": 1995 }, { "maxG": 9000, "cents": 2995 }, { "maxG": null, "cents": 4995 }
+        ] },
+        { "minPriceCents": 0, "tiers": [
+          { "maxG": 300, "cents": 565 }, { "maxG": 500, "cents": 595 }, { "maxG": 1000, "cents": 645 },
+          { "maxG": 2000, "cents": 695 }, { "maxG": 5000, "cents": 895 }, { "maxG": null, "cents": 1495 }
+        ] }
+      ]
+    }
+  ]
+}

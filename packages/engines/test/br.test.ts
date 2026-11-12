@@ -6,13 +6,30 @@ import {
   groupForDossiers,
   REFERENCE_TABLES,
   runBrAudit,
+  versionAt,
   type BrAuditInput,
+  type BrTables,
   type EvidenceItem,
   type ErpProduct,
   type MarketplaceOrder,
 } from '../src/index';
 
 const AS_OF = '2026-06-30T00:00:00.000Z';
+
+const freight = [{ minPriceCents: 0, tiers: [{ maxG: 500, cents: 1_990 }, { maxG: 1000, cents: 2_290 }, { maxG: 5000, cents: 2_990 }, { maxG: null, cents: 7_990 }] }];
+const base2026 = { effectiveFrom: '2026-01-01', effectiveTo: null, verified: true, sources: [], notes: '', cubicDivisor: 6000 };
+/** Tabela fixa dos testes: os números das asserções não dependem do arquivo de configuração. */
+const T: BrTables = {
+  ...REFERENCE_TABLES,
+  ml: [
+    { ...base2026, id: 'ml-antiga', effectiveFrom: '2025-01-01', effectiveTo: '2025-12-31', freight, commissions: [], defaultCommission: { categoryId: '*', label: 'Todas', classicoBps: 1000, premiumBps: 1500 }, fixedFee: [] },
+    { ...base2026, id: 'ml-teste', freight, commissions: [{ categoryId: 'MLB-ELETRO', label: 'Eletrônicos', classicoBps: 1300, premiumBps: 1800 }], defaultCommission: { categoryId: '*', label: 'Demais', classicoBps: 1200, premiumBps: 1700 }, fixedFee: [{ belowCents: 7_900, cents: 600 }] },
+  ],
+  shopee: [
+    { ...base2026, id: 'shopee-teste', freight: [{ minPriceCents: 0, tiers: [{ maxG: 500, cents: 1_590 }, { maxG: null, cents: 4_990 }] }], commission: [{ belowCents: null, rateBps: 1400, fixedCents: 0 }], commissionCapCents: 10_000, transactionFeeBps: 200 },
+  ],
+};
+const audit = (input: BrAuditInput) => runBrAudit(input, T);
 const daysAgo = (n: number) => new Date(new Date(AS_OF).getTime() - n * 86_400_000).toISOString();
 
 // 20 × 18 × 8 cm = 2.880 cm³ → 480 g cubado; peso real 310 g. Peso tarifável: 480 g.
@@ -30,7 +47,7 @@ const base = (over: Partial<BrAuditInput> = {}): BrAuditInput => ({
   ...over,
 });
 
-const rules = (input: BrAuditInput) => runBrAudit(input).findings.map((f) => [f.rule, f.recoverableCents]);
+const rules = (input: BrAuditInput) => audit(input).findings.map((f) => [f.rule, f.recoverableCents]);
 
 describe('Mercado Livre', () => {
   it('não acusa nada quando comissão, frete e repasse estão corretos', () => {
@@ -39,7 +56,7 @@ describe('Mercado Livre', () => {
 
   it('aponta comissão cobrada pela alíquota errada', () => {
     // Premium de eletrônicos: 18% de 399,90 = 71,98. Cobrado a 21% = 83,98.
-    const findings = runBrAudit(base({ orders: [order({ commissionCents: 8_398 })] })).findings;
+    const findings = audit(base({ orders: [order({ commissionCents: 8_398 })] })).findings;
     assert.equal(findings[0].rule, 'ML_COMMISSION_OVERCHARGE');
     assert.equal(findings[0].recoverableCents, 1_200);
     assert.deepEqual(findings[0].details.amountLabels, ['Valor cobrado', 'Valor correto']);
@@ -47,7 +64,7 @@ describe('Mercado Livre', () => {
 
   it('aponta frete cobrado por peso maior que o cadastro do ERP justifica', () => {
     // 2,4 kg → faixa de R$ 29,90; correto (480 g) → R$ 19,90.
-    const findings = runBrAudit(base({ orders: [order({ billedWeightG: 2_400, shippingChargedCents: 2_990 })] })).findings;
+    const findings = audit(base({ orders: [order({ billedWeightG: 2_400, shippingChargedCents: 2_990 })] })).findings;
     assert.deepEqual([findings[0].rule, findings[0].recoverableCents], ['ML_FREIGHT_OVERCHARGE', 1_000]);
     assert.equal(findings[0].details.ids.ean, '7891234567890');
   });
@@ -109,7 +126,7 @@ describe('ERP × marketplace', () => {
       invoices: [{ accessKey: '1'.repeat(44), kind: 'REMESSA', issuedAt: daysAgo(40), sku: 'FONE', quantity: 100, totalCents: 1_890_000, inboundId: 'INB-1' }],
       receipts: [{ inboundId: 'INB-1', sku: 'FONE', receivedQty: 96, receivedAt: daysAgo(36) }],
     });
-    const { findings, reconciliation } = runBrAudit(input);
+    const { findings, reconciliation } = audit(input);
     assert.deepEqual([findings[0].rule, findings[0].quantity, findings[0].recoverableCents], ['ERP_INBOUND_GAP', 4, 75_600]);
     assert.equal(findings[0].details.ids.nfeKey, '1'.repeat(44));
     assert.equal(reconciliation[0].inbound, 100);
@@ -126,7 +143,7 @@ describe('ERP × marketplace', () => {
 
   it('é idempotente: mesmos dados, mesmas chaves', () => {
     const input = base({ orders: [order({ commissionCents: 8_398 }), order({ orderId: 'P2', billedWeightG: 2_400, shippingChargedCents: 2_990 })] });
-    const run = () => runBrAudit(input).findings.map((f) => f.fingerprint);
+    const run = () => audit(input).findings.map((f) => f.fingerprint);
     assert.deepEqual(run(), run());
     assert.equal(new Set(run()).size, 2);
   });
@@ -186,5 +203,35 @@ describe('dossiê de evidências', () => {
 
   it('usa as tabelas de referência declaradas', () => {
     assert.equal(REFERENCE_TABLES.deadlineDays.ML_FREIGHT_OVERCHARGE, 60);
+  });
+});
+
+describe('tabelas versionadas por vigência', () => {
+  it('escolhe a versão válida na data da venda, com limites inclusivos', () => {
+    assert.equal(versionAt(T.ml, '2025-12-31T23:00:00.000Z')?.id, 'ml-antiga');
+    assert.equal(versionAt(T.ml, '2026-01-01T00:00:00.000Z')?.id, 'ml-teste');
+    assert.equal(versionAt(T.ml, '2024-06-01T00:00:00.000Z'), undefined);
+  });
+
+  it('audita cada pedido com a regra da sua data', () => {
+    // Em 2025 a comissão premium era 15%: os mesmos 18% cobrados são erro lá e acerto em 2026.
+    const antigo = order({ orderId: 'P-2025', saleDate: '2025-12-20T00:00:00.000Z' });
+    const findings = runBrAudit({ ...base({ orders: [antigo, order()] }), asOf: '2026-01-10T00:00:00.000Z' }, T).findings;
+    assert.deepEqual(findings.map((f) => [f.details.ids.orderId, f.rule, f.details.tariff]), [
+      ['P-2025', 'ML_COMMISSION_OVERCHARGE', { id: 'ml-antiga', verified: true }],
+    ]);
+    assert.match(findings[0].details.policy, /tabela ml-antiga, vigente desde 01\/01\/2025/);
+  });
+
+  it('não audita tarifa de pedido sem tabela vigente', () => {
+    const semTabela = order({ saleDate: '2024-03-01T00:00:00.000Z', commissionCents: 99_999 });
+    assert.deepEqual(runBrAudit({ ...base({ orders: [semTabela] }), asOf: '2024-03-20T00:00:00.000Z' }, T).findings, []);
+  });
+
+  it('carrega as versões do arquivo de configuração sem sobreposição e marca as não confirmadas', () => {
+    assert.ok(REFERENCE_TABLES.ml.length >= 2 && REFERENCE_TABLES.shopee.length >= 3);
+    assert.equal(versionAt(REFERENCE_TABLES.shopee, '2026-09-30')?.id, 'shopee-br-2026-03');
+    assert.equal(versionAt(REFERENCE_TABLES.shopee, '2026-10-01')?.id, 'shopee-br-2026-10');
+    assert.ok([...REFERENCE_TABLES.ml, ...REFERENCE_TABLES.shopee].every((v) => v.verified === false && v.sources.length > 0));
   });
 });

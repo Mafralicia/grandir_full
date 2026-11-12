@@ -92,6 +92,8 @@ export interface Dossier extends DossierGroup {
   subject: string;
   /** Texto pronto para colar na central de ajuda do marketplace. */
   ticketText: string;
+  /** Alertas para o seller conferir antes de enviar; não fazem parte do texto do chamado. */
+  warnings: string[];
 }
 
 const ID_FIELDS: [keyof FindingDetails['ids'], string][] = [
@@ -159,7 +161,11 @@ export function buildDossier(group: DossierGroup, company: string, generatedAt: 
     company,
   );
 
-  return { ...group, company, generatedAt, typeLabel, marketplaceName, subject, ticketText: lines.join('\n') };
+  const unverified = [...new Set(group.items.map((i) => i.details?.tariff).filter((t) => t && !t.verified).map((t) => t!.id))];
+  const warnings = unverified.length
+    ? [`A tabela de tarifas usada no cálculo (${unverified.join(', ')}) não foi confirmada na fonte oficial do marketplace. Confira os valores antes de enviar o chamado.`]
+    : [];
+  return { ...group, company, generatedAt, typeLabel, marketplaceName, subject, ticketText: lines.join('\n'), warnings };
 }
 
 export const DOSSIER_COLUMNS = [

@@ -12,8 +12,8 @@ const NAV: { group: string; items: { to: string; label: string; end?: boolean; r
       { to: '/app', end: true, label: 'Visão geral', icon: LayoutDashboard },
       { to: '/app/conciliacao', label: 'Conciliação de estoque', icon: Boxes },
       { to: '/app/divergencias', label: 'Divergências', icon: ScanSearch },
-      { to: '/app/dossies', label: 'Dossiês', icon: FolderCheck },
-      { to: '/app/chamados', label: 'Chamados', icon: MessagesSquare },
+      { to: '/app/dossies', label: 'Dossiês e chamados', icon: FolderCheck },
+      { to: '/app/chamados', label: 'Ocorrências avulsas', icon: MessagesSquare },
     ],
   },
   {

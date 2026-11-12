@@ -63,6 +63,15 @@ export const CLAIM_STATUS: Record<string, { label: string; tone: Tone }> = {
   CLOSED: { label: 'Encerrado', tone: 'neutral' },
 };
 
+export const CASE_STATUS: Record<string, { label: string; tone: Tone }> = {
+  RASCUNHO: { label: 'Rascunho', tone: 'neutral' },
+  ABERTO: { label: 'Aberto', tone: 'info' },
+  EM_ANALISE: { label: 'Em análise', tone: 'info' },
+  DEFERIDO: { label: 'Deferido', tone: 'success' },
+  INDEFERIDO: { label: 'Indeferido', tone: 'danger' },
+  PAGO: { label: 'Pago', tone: 'success' },
+};
+
 export const DISCREPANCY_STATUS: Record<string, { label: string; tone: Tone }> = {
   OPEN: { label: 'Em aberto', tone: 'warn' },
   CLAIMED: { label: 'Em disputa', tone: 'info' },
@@ -115,6 +124,9 @@ export const ACTIVITY_LABEL: Record<string, string> = {
 
 export const activityLabel = (action: string): string => {
   if (ACTIVITY_LABEL[action]) return ACTIVITY_LABEL[action];
+  const caseStatus = action.startsWith('CHAMADO_DE_DOSSIE_') ? CASE_STATUS[action.slice(18)] : undefined;
+  if (caseStatus) return `Chamado de dossiê → ${caseStatus.label}`;
+  if (action === 'CHAMADO_DE_DOSSIE_CRIADO') return 'Chamado de dossiê criado';
   const status = action.startsWith('CHAMADO_') ? CLAIM_STATUS[action.slice(8)] : undefined;
   return status ? `Chamado → ${status.label}` : action;
 };

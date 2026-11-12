@@ -11,7 +11,23 @@ import type {
   MarketplaceOrder,
   Nfe,
 } from './model';
-import { billableWeightG, brl, freightFor, pct, REFERENCE_TABLES, type BrTables } from './tables';
+import {
+  billableWeightG,
+  brl,
+  freightCents,
+  mlCommissionCents,
+  mlCommissionRule,
+  mlFixedFeeCents,
+  pct,
+  REFERENCE_TABLES,
+  shopeeBand,
+  shopeeCommissionCents,
+  shopeeTransactionCents,
+  versionAt,
+  versionLabel,
+  type BrTables,
+  type TariffVersion,
+} from './tables';
 
 interface Context {
   input: BrAuditInput;
@@ -32,7 +48,8 @@ function emit(
   sku: string,
   quantity: number,
   occurredAt: string,
-  details: Omit<FindingDetails, 'marketplace' | 'amountLabels'>,
+  details: Omit<FindingDetails, 'marketplace' | 'amountLabels' | 'tariff'>,
+  tariff?: TariffVersion,
 ): void {
   const recoverableCents = details.expectedCents - details.actualCents;
   if (recoverableCents <= ctx.tables.toleranceCents) return;
@@ -52,6 +69,7 @@ function emit(
     details: {
       ...details,
       marketplace: ctx.input.marketplace,
+      tariff: tariff ? { id: tariff.id, verified: tariff.verified } : undefined,
       amountLabels: rule.endsWith('_OVERCHARGE') ? ['Valor cobrado', 'Valor correto'] : ['Valor devido', 'Valor creditado'],
       ids: { ean: product?.ean, ...details.ids },
       timeline: [...details.timeline, { at: deadlineAt, label: 'Prazo limite para contestação' }].sort((a, b) =>
@@ -123,18 +141,18 @@ function auditIncidents(ctx: Context): void {
 /** Frete cobrado acima do que as medidas e o peso cadastrados no ERP justificam. */
 function auditFreight(ctx: Context): void {
   const isMl = ctx.input.marketplace === 'mercadolivre';
-  const table = isMl ? ctx.tables.ml : ctx.tables.shopee;
   for (const order of ctx.input.orders) {
     const product = ctx.products.get(order.sku);
-    if (!product || order.shippingChargedCents === 0) continue;
-    const weightG = billableWeightG(product, table.cubicDivisor);
-    const expectedCents = freightFor(weightG, table.freight);
+    const version = versionAt<TariffVersion>(isMl ? ctx.tables.ml : ctx.tables.shopee, order.saleDate);
+    if (!product || !version || order.shippingChargedCents === 0) continue;
+    const weightG = billableWeightG(product, version.cubicDivisor);
     if (order.billedWeightG <= weightG) continue;
+    const expectedCents = freightCents(version, order.grossCents / order.quantity, weightG);
     emit(ctx, isMl ? 'ML_FREIGHT_OVERCHARGE' : 'SHOPEE_FREIGHT_OVERCHARGE', order.orderId, order.sku, order.quantity, order.saleDate, {
       ids: orderIds(ctx, order),
       expectedCents: order.shippingChargedCents,
       actualCents: expectedCents,
-      policy: `Tabela de frete do ${NAME[ctx.input.marketplace]}: a cobrança considera o maior entre o peso real e o peso cubado (C × L × A ÷ ${table.cubicDivisor}).`,
+      policy: `Tabela de frete do ${NAME[ctx.input.marketplace]} (${versionLabel(version)}): a cobrança considera o maior entre o peso real e o peso cubado (C × L × A ÷ ${version.cubicDivisor}).`,
       calc: [
         `Cadastro no ERP: ${product.lengthCm} × ${product.widthCm} × ${product.heightCm} cm, ${product.weightG} g.`,
         `Peso tarifável correto: ${weightG} g → frete de ${brl(expectedCents)}.`,
@@ -142,7 +160,7 @@ function auditFreight(ctx: Context): void {
         `Cobrança a maior: ${brl(order.shippingChargedCents - expectedCents)}.`,
       ],
       timeline: [{ at: order.saleDate, label: `Venda e postagem do pedido ${order.orderId}` }],
-    });
+    }, version);
   }
 }
 
@@ -197,27 +215,27 @@ function auditReturns(ctx: Context): void {
 
 function auditMlCommission(ctx: Context): void {
   if (ctx.input.marketplace !== 'mercadolivre') return;
-  const { ml } = ctx.tables;
   for (const order of ctx.input.orders) {
-    const rule = ml.commissions.find((c) => c.categoryId === order.categoryId) ?? ml.defaultCommission;
-    const rateBps = rule.rateBps[order.listingType];
-    const commission = Math.round((order.grossCents * rateBps) / 10_000);
-    const unitPrice = order.grossCents / order.quantity;
-    const fixed = unitPrice < ml.fixedFeeBelowCents ? ml.fixedFeeCents * order.quantity : 0;
+    const version = versionAt(ctx.tables.ml, order.saleDate);
+    if (!version) continue;
+    const rule = mlCommissionRule(version, order.categoryId);
+    const rateBps = order.listingType === 'premium' ? rule.premiumBps : rule.classicoBps;
+    const commission = mlCommissionCents(version, order.categoryId, order.listingType, order.grossCents);
+    const fixed = mlFixedFeeCents(version, order.grossCents / order.quantity, order.quantity);
     const charged = order.commissionCents + order.feeCents;
     emit(ctx, 'ML_COMMISSION_OVERCHARGE', order.orderId, order.sku, order.quantity, order.saleDate, {
       ids: orderIds(ctx, order),
       expectedCents: charged,
       actualCents: commission + fixed,
-      policy: `Tarifas de venda do Mercado Livre: categoria "${rule.label}", anúncio ${order.listingType}, comissão de ${pct(rateBps)}; tarifa fixa de ${brl(ml.fixedFeeCents)} por unidade abaixo de ${brl(ml.fixedFeeBelowCents)}.`,
+      policy: `Tarifas de venda do Mercado Livre (${versionLabel(version)}): categoria "${rule.label}", anúncio ${order.listingType}, comissão de ${pct(rateBps)}, mais custo fixo por unidade para itens abaixo de ${brl(version.fixedFee[version.fixedFee.length - 1]?.belowCents ?? 0)}.`,
       calc: [
-        `Valor da venda: ${brl(order.grossCents)} (${order.quantity} un.).`,
-        `Comissão correta: ${pct(rateBps)} = ${brl(commission)}; tarifa fixa correta: ${brl(fixed)}.`,
-        `Cobrado: comissão de ${brl(order.commissionCents)} + tarifa fixa de ${brl(order.feeCents)} = ${brl(charged)}.`,
+        `Valor da venda: ${brl(order.grossCents)} (${order.quantity} un.) em ${fmtDate(order.saleDate)}.`,
+        `Comissão correta: ${pct(rateBps)} = ${brl(commission)}; custo fixo correto: ${brl(fixed)}.`,
+        `Cobrado: comissão de ${brl(order.commissionCents)} + custo fixo de ${brl(order.feeCents)} = ${brl(charged)}.`,
         `Cobrança a maior: ${brl(charged - commission - fixed)}.`,
       ],
       timeline: [{ at: order.saleDate, label: `Venda do pedido ${order.orderId}` }],
-    });
+    }, version);
   }
 }
 
@@ -225,19 +243,22 @@ function auditMlCommission(ctx: Context): void {
 
 function auditShopeePayout(ctx: Context): void {
   if (ctx.input.marketplace !== 'shopee') return;
-  const { shopee } = ctx.tables;
   for (const order of ctx.input.orders) {
     if (order.settledCents === null || !order.settledAt) continue;
-    const commission = Math.min(Math.round((order.grossCents * shopee.commissionBps) / 10_000), shopee.commissionCapCents * order.quantity);
-    const transaction = Math.round((order.grossCents * shopee.transactionFeeBps) / 10_000);
+    const version = versionAt(ctx.tables.shopee, order.saleDate);
+    if (!version) continue;
+    const band = shopeeBand(version, order.grossCents / order.quantity);
+    const commission = shopeeCommissionCents(version, order.grossCents, order.quantity);
+    const transaction = shopeeTransactionCents(version, order.grossCents);
     const expectedNet = order.grossCents - commission - transaction - order.shippingChargedCents;
+    const cap = version.commissionCapCents === null ? 'sem teto' : `teto de ${brl(version.commissionCapCents)} por item`;
     emit(ctx, 'SHOPEE_PAYOUT_SHORTFALL', order.orderId, order.sku, order.quantity, order.settledAt, {
       ids: orderIds(ctx, order),
       expectedCents: expectedNet,
       actualCents: order.settledCents,
-      policy: `Repasse da Shopee: preço de venda menos comissão de ${pct(shopee.commissionBps)} (teto de ${brl(shopee.commissionCapCents)} por item), taxa de transação de ${pct(shopee.transactionFeeBps)} e frete do seller.`,
+      policy: `Repasse da Shopee (${versionLabel(version)}): preço de venda menos comissão de ${pct(band.rateBps)} mais ${brl(band.fixedCents)} por item (${cap}), taxa de transação de ${pct(version.transactionFeeBps)} e frete do seller.`,
       calc: [
-        `Valor da venda: ${brl(order.grossCents)}.`,
+        `Valor da venda: ${brl(order.grossCents)} em ${fmtDate(order.saleDate)}.`,
         `(−) Comissão: ${brl(commission)}; (−) taxa de transação: ${brl(transaction)}; (−) frete: ${brl(order.shippingChargedCents)}.`,
         `Repasse líquido esperado: ${brl(expectedNet)}.`,
         `Valor liquidado na carteira: ${brl(order.settledCents)}.`,
@@ -247,7 +268,7 @@ function auditShopeePayout(ctx: Context): void {
         { at: order.saleDate, label: `Venda do pedido ${order.orderId}` },
         { at: order.settledAt, label: 'Liquidação na carteira Shopee' },
       ],
-    });
+    }, version);
   }
 }
 

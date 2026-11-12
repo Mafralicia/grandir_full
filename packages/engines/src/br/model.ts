@@ -76,7 +76,7 @@ export interface ReturnCase {
   compensatedCents: Cents;
 }
 
-export type NfeKind = 'ENTRADA' | 'REMESSA' | 'VENDA' | 'DEVOLUCAO';
+export type NfeKind = 'ENTRADA' | 'REMESSA' | 'RETORNO' | 'VENDA' | 'DEVOLUCAO';
 
 export interface Nfe {
   /** Chave de acesso de 44 dígitos. */
@@ -147,6 +147,8 @@ export interface FindingDetails {
   actualCents: Cents;
   /** Rótulos dos dois valores: ["Valor devido", "Valor creditado"] ou ["Valor cobrado", "Valor correto"]. */
   amountLabels: [string, string];
+  /** Versão da tabela de tarifas aplicada (a vigente na data da venda) e se ela foi conferida na fonte oficial. */
+  tariff?: { id: string; verified: boolean };
   /** Regra ou política do marketplace em que o pedido de reembolso se apoia. */
   policy: string;
   /** Memória de cálculo, uma linha por passo. */

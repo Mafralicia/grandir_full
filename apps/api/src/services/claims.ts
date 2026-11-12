@@ -13,6 +13,8 @@ export interface ClaimRow {
   status: ClaimStatus;
   claimed_cents: number;
   approved_cents: number | null;
+  /** Chamado de dossiê que governa este registro; `null` para chamados avulsos. */
+  case_id: string | null;
 }
 
 function addEvent(
@@ -43,7 +45,13 @@ export function getClaim(scope: TenantScope, claimId: string): ClaimRow {
 }
 
 /** Abre um chamado para uma divergência em aberto. Deve rodar dentro de uma transação. */
-export function openClaim(scope: TenantScope, discrepancyId: string, actor: string, at = nowIso()): ClaimRow {
+export function openClaim(
+  scope: TenantScope,
+  discrepancyId: string,
+  actor: string,
+  at = nowIso(),
+  initial: 'SUBMITTED' | 'DRAFT' = 'SUBMITTED',
+): ClaimRow {
   const discrepancy = scope.get<{ id: string; store_id: string; type: string; status: string; estimated_value_cents: number }>(
     'SELECT id, store_id, type, status, estimated_value_cents FROM discrepancies WHERE tenant_id = :tenantId AND id = :discrepancyId',
     { discrepancyId },
@@ -55,7 +63,7 @@ export function openClaim(scope: TenantScope, discrepancyId: string, actor: stri
   const id = randomUUID();
   scope.run(
     `INSERT INTO claims (id, tenant_id, store_id, discrepancy_id, code, type, status, claimed_cents, opened_at, updated_at)
-     VALUES (:id, :tenantId, :storeId, :discrepancyId, :code, :type, 'SUBMITTED', :claimedCents, :at, :at)`,
+     VALUES (:id, :tenantId, :storeId, :discrepancyId, :code, :type, :initial, :claimedCents, :at, :at)`,
     {
       id,
       storeId: discrepancy.store_id,
@@ -63,11 +71,18 @@ export function openClaim(scope: TenantScope, discrepancyId: string, actor: stri
       code: `GRD-${String(total + 1).padStart(5, '0')}`,
       type: discrepancy.type,
       claimedCents: discrepancy.estimated_value_cents,
+      initial,
       at,
     },
   );
   scope.run("UPDATE discrepancies SET status = 'CLAIMED' WHERE tenant_id = :tenantId AND id = :discrepancyId", { discrepancyId });
-  addEvent(scope, id, { at, actor, kind: 'STATUS', to: 'SUBMITTED', note: 'Chamado aberto junto ao marketplace.' });
+  addEvent(scope, id, {
+    at,
+    actor,
+    kind: 'STATUS',
+    to: initial,
+    note: initial === 'DRAFT' ? 'Incluído em um chamado de dossiê.' : 'Chamado aberto junto ao marketplace.',
+  });
   return getClaim(scope, id);
 }
 

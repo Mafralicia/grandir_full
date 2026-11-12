@@ -20,7 +20,7 @@ export function ClaimsList() {
 
   return (
     <>
-      <PageHead title="Chamados" subtitle="Cada disputa aberta junto ao marketplace, do envio ao pagamento." />
+      <PageHead title="Ocorrências" subtitle="Cada divergência contestada, individualmente. As que pertencem a um dossiê acompanham a situação do chamado dele." />
       <div className="card">
         <div className="card-head">
           <div className="chips">
@@ -66,7 +66,7 @@ export function ClaimsList() {
 interface ClaimDetailData {
   claim: ClaimRow & {
     resolvedAt: string | null; paidAt: string | null; referenceId: string; occurredAt: string; expiresAt: string | null;
-    evidence: string[]; marketplace: string; nextStatuses: string[];
+    evidence: string[]; marketplace: string; nextStatuses: string[]; caseId: string | null;
   };
   events: { id: string; at: string; actor: string; kind: string; fromStatus: string | null; toStatus: string | null; note: string | null }[];
   documents: { id: string; kind: string; filename: string; sizeBytes: number; uploadedBy: string; createdAt: string }[];
@@ -139,6 +139,9 @@ export function ClaimDetail() {
       </PageHead>
 
       {message && <div className={`alert ${message.tone}`} role="status">{message.text}</div>}
+      {claim.caseId && (
+        <div className="alert info">Esta ocorrência faz parte de um chamado de dossiê: a situação é atualizada por lá. <Link to={`/app/dossies/${claim.caseId}`}>Abrir o chamado</Link></div>
+      )}
       {claim.status === 'NEEDS_DOCUMENTS' && (
         <div className="alert warn">O marketplace pediu documentos para este caso. Anexe-os abaixo para a análise continuar.</div>
       )}

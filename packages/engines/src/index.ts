@@ -8,7 +8,21 @@ export * from './claims';
 export * from './billing';
 export { addDays, daysBetween } from './util';
 export * from './br/model';
-export { REFERENCE_TABLES, brl, type BrTables, type CommissionRule, type FreightTier } from './br/tables';
+export {
+  REFERENCE_TABLES,
+  brl,
+  freightCents,
+  mlCommissionCents,
+  mlFixedFeeCents,
+  shopeeCommissionCents,
+  shopeeTransactionCents,
+  versionAt,
+  type BrTables,
+  type CommissionRule,
+  type MlTariff,
+  type ShopeeTariff,
+  type TariffVersion,
+} from './br/tables';
 export * from './br/rules';
 export * from './evidence/dossier';
 export { TYPE_LABELS } from './evidence/labels';

@@ -302,7 +302,7 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
     return {
       claims: scope.all(
         `SELECT c.id, c.code, c.type, c.status, c.claimed_cents AS claimedCents, c.approved_cents AS approvedCents,
-                c.marketplace_case_id AS marketplaceCaseId, c.opened_at AS openedAt, c.updated_at AS updatedAt,
+                c.marketplace_case_id AS marketplaceCaseId, c.opened_at AS openedAt, c.updated_at AS updatedAt, c.case_id AS caseId,
                 d.sku, d.product_name AS productName, d.quantity, s.name AS storeName
            FROM claims c
            JOIN discrepancies d ON d.id = c.discrepancy_id AND d.tenant_id = c.tenant_id
@@ -320,7 +320,7 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
     const claim = scope.get<{ status: ClaimStatus; evidenceJson: string }>(
       `SELECT c.id, c.code, c.type, c.status, c.claimed_cents AS claimedCents, c.approved_cents AS approvedCents,
               c.marketplace_case_id AS marketplaceCaseId, c.opened_at AS openedAt, c.updated_at AS updatedAt,
-              c.resolved_at AS resolvedAt, c.paid_at AS paidAt,
+              c.resolved_at AS resolvedAt, c.paid_at AS paidAt, c.case_id AS caseId,
               d.sku, d.product_name AS productName, d.quantity, d.reference_id AS referenceId,
               d.occurred_at AS occurredAt, d.expires_at AS expiresAt, d.evidence_json AS evidenceJson,
               s.name AS storeName, s.marketplace
@@ -333,7 +333,12 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
     if (!claim) throw notFound('Chamado não encontrado.');
     const { evidenceJson, ...rest } = claim;
     return {
-      claim: { ...rest, evidence: JSON.parse(evidenceJson) as string[], nextStatuses: nextStatuses(claim.status) },
+      claim: {
+        ...rest,
+        evidence: JSON.parse(evidenceJson) as string[],
+        // Ocorrência de dossiê não tem próximos passos próprios.
+        nextStatuses: (rest as { caseId?: string | null }).caseId ? [] : nextStatuses(claim.status),
+      },
       events: scope.all(
         `SELECT id, at, actor, kind, from_status AS fromStatus, to_status AS toStatus, note
            FROM claim_events WHERE tenant_id = :tenantId AND claim_id = :id ORDER BY at DESC, rowid DESC`,
@@ -358,6 +363,9 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
         marketplaceCaseId: z.string().trim().max(60).optional(),
       })
       .parse(request.body);
+    if (getClaim(scope, id).case_id) {
+      throw conflict('Esta ocorrência faz parte de um chamado de dossiê: atualize a situação pelo dossiê.', 'GOVERNADO_PELO_DOSSIE');
+    }
     const claim = scope.transaction(() =>
       transitionClaim(scope, id, body.to, {
         actor: actorName(request),
