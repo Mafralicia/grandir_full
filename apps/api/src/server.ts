@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { authRoutes } from './auth/routes';
+import { accountRoutes } from './routes/account';
 import { resolveSession, type AuthContext } from './auth/service';
 import type { Config } from './config';
 import type { Db } from './db';
@@ -107,6 +108,7 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
   await dossierRoutes(app, { db, requireAuth });
   await oauthRoutes(app, { db, config, requireAuth });
   await importRoutes(app, { db, config, requireAuth });
+  await accountRoutes(app, { db, requireAuth });
   app.get('/api/meta', async () => ({ demoMode: config.demoMode, oauth: { mercadolivre: config.integrations.mercadolivre !== null, shopee: config.integrations.shopee !== null } }));
 
   return app;

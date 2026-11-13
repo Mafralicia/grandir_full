@@ -180,7 +180,7 @@ export async function dossierRoutes(
            FROM case_events WHERE tenant_id = :tenantId AND case_id = :id ORDER BY at DESC, rowid DESC`,
         { id },
       ),
-      ticket: { subject: dossier.subject, text: dossier.ticketText, warnings: dossier.warnings },
+      ticket: { subject: dossier.subject, text: dossier.ticketText, warnings: dossier.warnings, requiredDocuments: dossier.requiredDocuments },
     };
   });
 

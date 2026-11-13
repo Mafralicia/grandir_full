@@ -28,8 +28,8 @@ function storeOf(scope: TenantScope, id: string): StoreRow {
     { id },
   );
   if (!store) throw notFound('Loja não encontrada.');
-  if (store.marketplace !== 'mercadolivre' && store.marketplace !== 'shopee') {
-    throw badRequest('A importação de relatórios está disponível para lojas do Mercado Livre e da Shopee.');
+  if (!['mercadolivre', 'shopee', 'tiktok'].includes(store.marketplace)) {
+    throw badRequest('A importação de relatórios está disponível para lojas do Mercado Livre, da Shopee e do TikTok Shop.');
   }
   return store;
 }

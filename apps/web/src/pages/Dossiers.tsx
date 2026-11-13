@@ -176,7 +176,7 @@ interface CaseDetailData {
   case: CaseRow & { nextStatuses: string[]; earliestDeadline: string | null };
   items: { claimId: string; claimCode: string; discrepancyId: string; status: string; claimedCents: number; approvedCents: number | null; sku: string; productName: string; quantity: number; referenceId: string }[];
   events: { id: string; at: string; actor: string; fromStatus: string | null; toStatus: string; note: string | null }[];
-  ticket: { subject: string; text: string; warnings: string[] };
+  ticket: { subject: string; text: string; warnings: string[]; requiredDocuments: string[] };
 }
 
 const CASE_VERB: Record<string, string> = {
@@ -316,6 +316,13 @@ export function CaseDetail() {
                 <textarea className="input" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
               <button className="btn" disabled={busy || !target}>Salvar</button>
             </form>
+          )}
+          {data.ticket.requiredDocuments.length > 0 && (
+            <div className="card card-pad stack">
+              <h3 style={{ fontSize: 16 }}>Documentos a anexar</h3>
+              <p className="muted small">O que o suporte costuma pedir para este tipo de divergência. Separe antes de abrir o chamado.</p>
+              <ul className="evidence" style={{ margin: 0 }}>{data.ticket.requiredDocuments.map((doc) => <li key={doc}>{doc}</li>)}</ul>
+            </div>
           )}
           <div className="card card-pad stack">
             <h3 style={{ fontSize: 16 }}>Linha do tempo</h3>

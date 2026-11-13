@@ -4,7 +4,7 @@ import type { Cents } from '../types';
  * Modelo neutro do e-commerce brasileiro. Os conectores (Mercado Livre, Shopee, ERPs)
  * traduzem seus relatórios para estas estruturas; o motor de regras só conhece este formato.
  */
-export type BrMarketplace = 'mercadolivre' | 'shopee';
+export type BrMarketplace = 'mercadolivre' | 'shopee' | 'tiktok';
 
 /** Cadastro do produto no ERP: é a fonte de verdade para custo, peso e medidas. */
 export interface ErpProduct {
@@ -123,6 +123,12 @@ export const BR_RULES = [
   'SHOPEE_LOST_NO_CREDIT',
   'SHOPEE_PAYOUT_SHORTFALL',
   'SHOPEE_FREIGHT_OVERCHARGE',
+  'SHOPEE_RETURN_NOT_RESTOCKED',
+  'SHOPEE_RETURN_DAMAGED',
+  'TIKTOK_LOST_NO_CREDIT',
+  'TIKTOK_PAYOUT_SHORTFALL',
+  'TIKTOK_RETURN_NOT_RESTOCKED',
+  'TIKTOK_RETURN_DAMAGED',
   'ERP_INBOUND_GAP',
   'ERP_UNSETTLED_SALE',
 ] as const;

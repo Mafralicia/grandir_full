@@ -25,3 +25,4 @@ const importedSource: BrDataSource = {
 
 export const mercadoLivreImportConnector = brConnector('mercadolivre-import', 'Mercado Livre (arquivos)', 'mercadolivre', importedSource);
 export const shopeeImportConnector = brConnector('shopee-import', 'Shopee (arquivos)', 'shopee', importedSource);
+export const tiktokImportConnector = brConnector('tiktok-import', 'TikTok Shop (arquivos)', 'tiktok', importedSource);

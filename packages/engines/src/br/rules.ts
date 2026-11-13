@@ -39,7 +39,7 @@ interface Context {
   out: Finding[];
 }
 
-const NAME: Record<string, string> = { mercadolivre: 'Mercado Livre', shopee: 'Shopee' };
+const NAME: Record<string, string> = { mercadolivre: 'Mercado Livre', shopee: 'Shopee', tiktok: 'TikTok Shop' };
 
 function emit(
   ctx: Context,
@@ -95,6 +95,7 @@ function orderIds(ctx: Context, order: MarketplaceOrder | undefined): FindingIds
 const INCIDENT_RULE: Record<string, Partial<Record<LogisticsIncident['kind'], BrRule>>> = {
   mercadolivre: { WAREHOUSE_LOSS: 'ML_WAREHOUSE_LOSS', WAREHOUSE_DAMAGE: 'ML_WAREHOUSE_DAMAGE', TRANSIT_LOSS: 'ML_TRANSIT_LOSS', REVERSE_LOSS: 'ML_TRANSIT_LOSS' },
   shopee: { TRANSIT_LOSS: 'SHOPEE_LOST_NO_CREDIT', REVERSE_LOSS: 'SHOPEE_LOST_NO_CREDIT', WAREHOUSE_LOSS: 'SHOPEE_LOST_NO_CREDIT', WAREHOUSE_DAMAGE: 'SHOPEE_LOST_NO_CREDIT' },
+  tiktok: { TRANSIT_LOSS: 'TIKTOK_LOST_NO_CREDIT', REVERSE_LOSS: 'TIKTOK_LOST_NO_CREDIT', WAREHOUSE_LOSS: 'TIKTOK_LOST_NO_CREDIT', WAREHOUSE_DAMAGE: 'TIKTOK_LOST_NO_CREDIT' },
 };
 
 const INCIDENT_TEXT: Record<LogisticsIncident['kind'], string> = {
@@ -140,6 +141,7 @@ function auditIncidents(ctx: Context): void {
 
 /** Frete cobrado acima do que as medidas e o peso cadastrados no ERP justificam. */
 function auditFreight(ctx: Context): void {
+  if (ctx.input.marketplace === 'tiktok') return; // Sem tabela de frete carregada para o TikTok Shop.
   const isMl = ctx.input.marketplace === 'mercadolivre';
   for (const order of ctx.input.orders) {
     const product = ctx.products.get(order.sku);
@@ -166,9 +168,16 @@ function auditFreight(ctx: Context): void {
 
 // ───────────────────────── Devoluções e mediações ─────────────────────────
 
+const RETURN_RULES: Record<string, [BrRule, BrRule]> = {
+  mercadolivre: ['ML_RETURN_NOT_RESTOCKED', 'ML_RETURN_DAMAGED'],
+  shopee: ['SHOPEE_RETURN_NOT_RESTOCKED', 'SHOPEE_RETURN_DAMAGED'],
+  tiktok: ['TIKTOK_RETURN_NOT_RESTOCKED', 'TIKTOK_RETURN_DAMAGED'],
+};
+
 /** Devolução encerrada a favor do comprador em que o produto não voltou, ou voltou avariado. */
 function auditReturns(ctx: Context): void {
-  if (ctx.input.marketplace !== 'mercadolivre') return;
+  const [notRestocked, damaged] = RETURN_RULES[ctx.input.marketplace];
+  const name = NAME[ctx.input.marketplace];
   for (const ret of ctx.input.returns) {
     if (ret.resolution !== 'BUYER') continue;
     if (daysBetween(ret.closedAt, ctx.input.asOf) < ctx.tables.incidentWaitDays) continue;
@@ -176,16 +185,16 @@ function auditReturns(ctx: Context): void {
     const product = ctx.products.get(ret.sku);
     const timeline = [
       ...(order ? [{ at: order.saleDate, label: `Venda do pedido ${ret.orderId}` }] : []),
-      { at: ret.closedAt, label: 'Mediação encerrada a favor do comprador' },
+      { at: ret.closedAt, label: 'Devolução encerrada a favor do comprador' },
     ];
     if (!ret.returnedToStock) {
-      emit(ctx, 'ML_RETURN_NOT_RESTOCKED', ret.id, ret.sku, ret.quantity, ret.closedAt, {
-        ids: orderIds(ctx, order),
+      emit(ctx, notRestocked, ret.id, ret.sku, ret.quantity, ret.closedAt, {
+        ids: { orderId: ret.orderId, ...orderIds(ctx, order) },
         expectedCents: ret.refundedToBuyerCents,
         actualCents: ret.compensatedCents,
-        policy: 'Devoluções do Mercado Livre: se o comprador foi reembolsado e o produto não retornou ao seller, o valor deve ser restituído.',
+        policy: `Devoluções do ${name}: se o comprador foi reembolsado e o produto não retornou ao seller, o valor deve ser restituído.`,
         calc: [
-          `Comprador reembolsado em ${brl(ret.refundedToBuyerCents)} na mediação ${ret.id}.`,
+          `Comprador reembolsado em ${brl(ret.refundedToBuyerCents)} na devolução ${ret.id}.`,
           'Produto não retornou ao estoque físico nem ao estoque do centro de distribuição.',
           `Valor restituído ao seller: ${brl(ret.compensatedCents)}.`,
           `Diferença a recuperar: ${brl(ret.refundedToBuyerCents - ret.compensatedCents)}.`,
@@ -194,13 +203,13 @@ function auditReturns(ctx: Context): void {
       });
     } else if (ret.returnedCondition === 'DAMAGED') {
       const expectedCents = (product?.costCents ?? 0) * ret.quantity;
-      emit(ctx, 'ML_RETURN_DAMAGED', ret.id, ret.sku, ret.quantity, ret.closedAt, {
-        ids: orderIds(ctx, order),
+      emit(ctx, damaged, ret.id, ret.sku, ret.quantity, ret.closedAt, {
+        ids: { orderId: ret.orderId, ...orderIds(ctx, order) },
         expectedCents,
         actualCents: ret.compensatedCents,
-        policy: 'Devoluções do Mercado Livre: produto devolvido em condição diferente da enviada dá direito a indenização.',
+        policy: `Devoluções do ${name}: produto devolvido em condição diferente da enviada dá direito a indenização.`,
         calc: [
-          `Produto da mediação ${ret.id} retornou avariado, sem condição de revenda.`,
+          `Produto da devolução ${ret.id} retornou avariado, sem condição de revenda.`,
           `Custo no ERP: ${brl(product?.costCents ?? 0)} × ${ret.quantity} un. = ${brl(expectedCents)}.`,
           `Indenização creditada: ${brl(ret.compensatedCents)}.`,
           `Diferença a recuperar: ${brl(expectedCents - ret.compensatedCents)}.`,
@@ -269,6 +278,38 @@ function auditShopeePayout(ctx: Context): void {
         { at: order.settledAt, label: 'Liquidação na carteira Shopee' },
       ],
     }, version);
+  }
+}
+
+// ───────────────────────── Repasse pelo próprio extrato (sem tabela de tarifas) ─────────────────────────
+
+/**
+ * Para marketplaces sem tabela de tarifas carregada, confere a aritmética do extrato:
+ * venda menos as tarifas e o frete que o próprio marketplace listou tem de dar o valor
+ * liquidado. Não julga se a tarifa está certa — só se o repasse fecha com ela.
+ */
+function auditStatementPayout(ctx: Context): void {
+  if (ctx.input.marketplace !== 'tiktok') return;
+  for (const order of ctx.input.orders) {
+    if (order.settledCents === null || !order.settledAt) continue;
+    const expectedNet = order.grossCents - order.commissionCents - order.feeCents - order.shippingChargedCents;
+    emit(ctx, 'TIKTOK_PAYOUT_SHORTFALL', order.orderId, order.sku, order.quantity, order.settledAt, {
+      ids: orderIds(ctx, order),
+      expectedCents: expectedNet,
+      actualCents: order.settledCents,
+      policy: 'Liquidação do TikTok Shop: o valor repassado deve ser a venda menos as tarifas e o frete discriminados no extrato do próprio pedido.',
+      calc: [
+        `Valor da venda: ${brl(order.grossCents)} em ${fmtDate(order.saleDate)}.`,
+        `(−) Comissão: ${brl(order.commissionCents)}; (−) demais taxas: ${brl(order.feeCents)}; (−) frete: ${brl(order.shippingChargedCents)}.`,
+        `Repasse esperado pelo extrato: ${brl(expectedNet)}.`,
+        `Valor liquidado: ${brl(order.settledCents)}.`,
+        `Diferença a recuperar: ${brl(expectedNet - order.settledCents)}.`,
+      ],
+      timeline: [
+        { at: order.saleDate, label: `Venda do pedido ${order.orderId}` },
+        { at: order.settledAt, label: 'Liquidação no TikTok Shop' },
+      ],
+    });
   }
 }
 
@@ -388,6 +429,7 @@ export function runBrAudit(input: BrAuditInput, tables: BrTables = REFERENCE_TAB
   auditReturns(ctx);
   auditMlCommission(ctx);
   auditShopeePayout(ctx);
+  auditStatementPayout(ctx);
   auditInboundGaps(ctx);
   auditUnsettledSales(ctx);
 

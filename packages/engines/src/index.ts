@@ -25,4 +25,4 @@ export {
 } from './br/tables';
 export * from './br/rules';
 export * from './evidence/dossier';
-export { TYPE_LABELS } from './evidence/labels';
+export { REQUIRED_DOCUMENTS, TYPE_LABELS } from './evidence/labels';

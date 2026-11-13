@@ -42,6 +42,12 @@ export function dossierPdf(dossier: Dossier): Promise<Buffer> {
       body(policy);
     }
 
+    if (dossier.requiredDocuments.length) {
+      doc.moveDown(0.8);
+      label('Documentos a anexar');
+      for (const required of dossier.requiredDocuments) body(`• ${required}`);
+    }
+
     dossier.items.forEach((item, index) => {
       doc.moveDown(1);
       if (doc.y > doc.page.height - 210) doc.addPage();

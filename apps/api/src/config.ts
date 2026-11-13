@@ -17,6 +17,8 @@ const schema = z.object({
   DEFAULT_FEE_RATE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
   /** Liga os geradores de dados sintéticos (testes e avaliação). Desligado, a aplicação só trabalha com dados reais. */
   GRANDIR_DEMO_MODE: z.enum(['true', 'false']).default('false'),
+  /** Intervalo da auditoria automática das lojas conectadas por API, em horas. 0 desliga. */
+  SYNC_INTERVAL_HOURS: z.coerce.number().min(0).max(720).default(24),
   ML_CLIENT_ID: z.string().optional(),
   ML_CLIENT_SECRET: z.string().optional(),
   SHOPEE_PARTNER_ID: z.string().optional(),
@@ -39,6 +41,7 @@ export interface Config {
   defaultFeeRateBps: number;
   integrations: IntegrationApps;
   demoMode: boolean;
+  syncIntervalHours: number;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -84,6 +87,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webOrigins,
     integrations,
     demoMode: parsed.GRANDIR_DEMO_MODE === 'true',
+    syncIntervalHours: parsed.SYNC_INTERVAL_HOURS,
     encryptionKey,
     defaultFeeRateBps: parsed.DEFAULT_FEE_RATE_BPS,
   };

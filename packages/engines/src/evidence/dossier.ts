@@ -2,7 +2,7 @@ import type { FindingDetails } from '../br/model';
 import { brl } from '../br/tables';
 import type { Cents, DiscrepancyType } from '../types';
 import { fmtDate } from '../util';
-import { MARKETPLACE_NAMES, TYPE_LABELS } from './labels';
+import { MARKETPLACE_NAMES, REQUIRED_DOCUMENTS, TYPE_LABELS } from './labels';
 
 /** Uma divergência em aberto, como o gerador de dossiês a recebe. */
 export interface EvidenceItem {
@@ -94,6 +94,8 @@ export interface Dossier extends DossierGroup {
   ticketText: string;
   /** Alertas para o seller conferir antes de enviar; não fazem parte do texto do chamado. */
   warnings: string[];
+  /** Documentos que costumam ser exigidos para este tipo de divergência. */
+  requiredDocuments: string[];
 }
 
 const ID_FIELDS: [keyof FindingDetails['ids'], string][] = [
@@ -165,7 +167,7 @@ export function buildDossier(group: DossierGroup, company: string, generatedAt: 
   const warnings = unverified.length
     ? [`A tabela de tarifas usada no cálculo (${unverified.join(', ')}) não foi confirmada na fonte oficial do marketplace. Confira os valores antes de enviar o chamado.`]
     : [];
-  return { ...group, company, generatedAt, typeLabel, marketplaceName, subject, ticketText: lines.join('\n'), warnings };
+  return { ...group, company, generatedAt, typeLabel, marketplaceName, subject, ticketText: lines.join('\n'), warnings, requiredDocuments: REQUIRED_DOCUMENTS[group.type] ?? [] };
 }
 
 export const DOSSIER_COLUMNS = [

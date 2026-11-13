@@ -100,6 +100,16 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
       'SELECT COUNT(*) AS count, MAX(last_audit_at) AS lastAuditAt FROM stores WHERE tenant_id = :tenantId',
     )!;
 
+    // Divergências ainda sem chamado enviado cujo prazo de contestação vence em até 10 dias.
+    const horizon = new Date(Date.now() + 10 * 86_400_000).toISOString();
+    const expiring = scope.get<{ cents: number; count: number; first: string | null }>(
+      `SELECT COALESCE(SUM(d.estimated_value_cents), 0) AS cents, COUNT(*) AS count, MIN(d.expires_at) AS first
+         FROM discrepancies d LEFT JOIN claims c ON c.discrepancy_id = d.id AND c.tenant_id = d.tenant_id
+        WHERE d.tenant_id = :tenantId AND d.expires_at IS NOT NULL AND d.expires_at <= :horizon AND d.expires_at >= :now
+          AND (d.status = 'OPEN' OR c.status = 'DRAFT')`,
+      { horizon, now: nowIso() },
+    )!;
+
     const sum = (statuses: readonly ClaimStatus[], field: 'claimedCents' | 'approvedCents' | 'count') =>
       pipeline.filter((row) => statuses.includes(row.status)).reduce((total, row) => total + row[field], 0);
     const won = sum(['APPROVED', 'PARTIALLY_APPROVED', 'PAID'], 'count');
@@ -128,6 +138,7 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
         needsDocumentsCount: sum(['NEEDS_DOCUMENTS'], 'count'),
         successRate: won + lost > 0 ? won / (won + lost) : null,
       },
+      expiring: { count: expiring.count, cents: expiring.cents, firstDeadline: expiring.first },
       monthly,
       byType,
       pipeline,

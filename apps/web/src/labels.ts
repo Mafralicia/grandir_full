@@ -23,6 +23,12 @@ export const TYPE_CATEGORY: Record<string, { label: string; tone: ToneClass }> =
   ML_COMMISSION_OVERCHARGE: { label: 'Tarifas', tone: 't-gold' },
   ML_RETURN_NOT_RESTOCKED: { label: 'Devoluções', tone: 't-green' },
   ML_RETURN_DAMAGED: { label: 'Devoluções', tone: 't-green' },
+  SHOPEE_RETURN_NOT_RESTOCKED: { label: 'Devoluções', tone: 't-green' },
+  SHOPEE_RETURN_DAMAGED: { label: 'Devoluções', tone: 't-green' },
+  TIKTOK_RETURN_NOT_RESTOCKED: { label: 'Devoluções', tone: 't-green' },
+  TIKTOK_RETURN_DAMAGED: { label: 'Devoluções', tone: 't-green' },
+  TIKTOK_LOST_NO_CREDIT: { label: 'Logística', tone: 't-purple' },
+  TIKTOK_PAYOUT_SHORTFALL: { label: 'Repasses', tone: 't-green' },
   SHOPEE_PAYOUT_SHORTFALL: { label: 'Repasses', tone: 't-green' },
   ERP_UNSETTLED_SALE: { label: 'Repasses', tone: 't-green' },
 };
@@ -46,6 +52,12 @@ export const TYPE_LABEL: Record<string, string> = {
   SHOPEE_LOST_NO_CREDIT: 'Pedido extraviado sem crédito',
   SHOPEE_PAYOUT_SHORTFALL: 'Repasse menor que o esperado',
   SHOPEE_FREIGHT_OVERCHARGE: 'Frete por cubagem indevida',
+  SHOPEE_RETURN_NOT_RESTOCKED: 'Devolução sem retorno do produto',
+  SHOPEE_RETURN_DAMAGED: 'Devolução com produto avariado',
+  TIKTOK_LOST_NO_CREDIT: 'Pedido extraviado sem crédito',
+  TIKTOK_PAYOUT_SHORTFALL: 'Repasse menor que o extrato indica',
+  TIKTOK_RETURN_NOT_RESTOCKED: 'Devolução sem retorno do produto',
+  TIKTOK_RETURN_DAMAGED: 'Devolução com produto avariado',
   ERP_INBOUND_GAP: 'Furo de inventário no recebimento',
   ERP_UNSETTLED_SALE: 'Venda faturada sem repasse',
 };
@@ -88,8 +100,9 @@ export const ROLE_LABEL: Record<string, string> = {
 
 export const MARKETPLACE_LABEL: Record<string, string> = {
   amazon: 'Amazon FBA',
-  mercadolivre: 'Mercado Livre Full',
-  shopee: 'Shopee Fulfillment',
+  mercadolivre: 'Mercado Livre',
+  shopee: 'Shopee',
+  tiktok: 'TikTok Shop',
   magalu: 'Magalu Fulfillment',
 };
 
@@ -121,6 +134,8 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   DOSSIE_EXPORTADO: 'Dossiê exportado',
   NFE_IMPORTADAS: 'XML de NF-e importados',
   RELATORIO_IMPORTADO: 'Relatório importado',
+  DADOS_EXPORTADOS: 'Dados da conta exportados',
+  SINCRONIZACAO_FALHOU: 'Sincronização automática falhou',
   CONTA_DE_MARKETPLACE_CONECTADA: 'Conta de marketplace conectada',
   PLANILHA_ERP_IMPORTADA: 'Planilha do ERP importada',
 };

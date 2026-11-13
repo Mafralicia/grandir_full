@@ -10,6 +10,7 @@ interface DashboardData {
     inDisputeCents: number; inDisputeCount: number; awaitingPaymentCents: number; recoveredCents: number;
     feesCents: number; needsDocumentsCount: number; successRate: number | null;
   };
+  expiring: { count: number; cents: number; firstDeadline: string | null };
   monthly: { period: string; cents: number }[];
   byType: { type: string; count: number; cents: number }[];
   pipeline: { status: string; count: number; claimedCents: number }[];
@@ -54,6 +55,12 @@ export function Dashboard() {
         <Link className="btn ghost" to="/app/divergencias">Ver divergências</Link>
       </PageHead>
 
+      {data.expiring.count > 0 && (
+        <div className="alert warn">
+          {integer(data.expiring.count)} {data.expiring.count === 1 ? 'divergência vence' : 'divergências vencem'} o prazo de contestação até {date(data.expiring.firstDeadline)} ou nos dias seguintes, somando {money(data.expiring.cents)} ainda sem chamado enviado.{' '}
+          <Link to="/app/dossies">Abrir os chamados</Link>
+        </div>
+      )}
       {totals.needsDocumentsCount > 0 && (
         <div className="alert warn">
           {integer(totals.needsDocumentsCount)} {totals.needsDocumentsCount === 1 ? 'chamado aguarda' : 'chamados aguardam'} documentos seus.{' '}

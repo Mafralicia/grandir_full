@@ -41,7 +41,7 @@ interface Meta {
 }
 
 /** Marketplaces com auditoria e entrada de dados reais; os demais aparecem como "em breve". */
-const LIVE_MARKETPLACES = ['mercadolivre', 'shopee'];
+const LIVE_MARKETPLACES = ['mercadolivre', 'shopee', 'tiktok'];
 
 function storeSource(store: StoresData['stores'][number]) {
   if (store.connector.includes('demo')) return <Badge tone="warn">Dados sintéticos de teste</Badge>;
@@ -424,6 +424,16 @@ export function Security() {
           </div>
         </div>
       </div>
+
+      {can('OWNER') && (
+        <div className="card card-pad row spread">
+          <div>
+            <h3 style={{ fontSize: 16 }}>Seus dados</h3>
+            <p className="muted small">Baixe tudo o que a Grandir guarda sobre a sua empresa, em um arquivo JSON. Senhas e tokens de acesso não são incluídos.</p>
+          </div>
+          <a className="btn ghost sm" href="/api/account/export">Exportar meus dados</a>
+        </div>
+      )}
 
       {can('ADMIN') && (
         <div className="card">
