@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, errorMessage, useLoad } from '../api';
 import { useAuth } from '../auth';
 import { activityLabel, date, dateTime, integer, MARKETPLACE_LABEL, money, monthLabel, ROLE_LABEL } from '../labels';
@@ -31,112 +31,105 @@ const Note = ({ message }: { message: Message }) =>
 // ───────────────────────── Lojas ─────────────────────────
 
 interface StoresData {
-  stores: { id: string; name: string; marketplace: string; region: string; connector: string; lastAuditAt: string | null; discrepancyCount: number; nfeCount: number; erpProductCount: number }[];
+  stores: { id: string; name: string; marketplace: string; region: string; connector: string; status: string; lastAuditAt: string | null; discrepancyCount: number; nfeCount: number; erpProductCount: number }[];
   runs: { id: string; storeName: string; finishedAt: string; eventsScanned: number; discrepanciesFound: number; newDiscrepancies: number; valueFoundCents: number; pendingCount: number; expiredCount: number }[];
+}
+
+interface Meta {
+  demoMode: boolean;
+  oauth: Record<string, boolean>;
+}
+
+/** Marketplaces com auditoria e entrada de dados reais; os demais aparecem como "em breve". */
+const LIVE_MARKETPLACES = ['mercadolivre', 'shopee'];
+
+function storeSource(store: StoresData['stores'][number]) {
+  if (store.connector.includes('demo')) return <Badge tone="warn">Dados sintéticos de teste</Badge>;
+  if (store.status === 'AGUARDANDO_DADOS') return <Badge tone="warn">Aguardando dados</Badge>;
+  if (store.connector.endsWith('-import')) return <Badge tone="info">Dados por arquivo</Badge>;
+  return <Badge tone="success">Conta conectada por API</Badge>;
 }
 
 export function Stores() {
   const { can, refresh } = useAuth();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const { data, error, reload } = useLoad<StoresData>('/stores');
+  const meta = useLoad<Meta>('/meta');
   const { busy, message, run } = useAction();
-  const [form, setForm] = useState({ name: '', marketplace: 'amazon', region: 'BR' });
-  if (!data) return <Loading error={error} />;
+  const [form, setForm] = useState({ name: '', marketplace: 'mercadolivre', region: 'BR' });
+  if (!data || !meta.data) return <Loading error={error ?? meta.error} />;
+  const { demoMode, oauth } = meta.data;
 
-  const connect = (event: FormEvent) => {
+  const create = (event: FormEvent) => {
     event.preventDefault();
     void run(async () => {
-      await api('/stores', { body: form });
-      setForm({ name: '', marketplace: 'amazon', region: 'BR' });
+      const created = await api<{ id: string }>('/stores', { body: form });
       await Promise.all([reload(), refresh()]);
-    }, 'Loja conectada e primeira auditoria concluída.');
+      // A loja nasce vazia: o próximo passo é alimentá-la com os dados reais.
+      if (!demoMode) navigate(`/app/lojas/${created.id}/dados`);
+    }, 'Loja criada.');
   };
 
   return (
     <>
-      <PageHead title="Lojas" subtitle="Cada loja conectada é auditada de forma independente." />
-      {params.get('conectada') && <div className="alert ok">Conta autorizada. A próxima auditoria já usa os dados reais do marketplace.</div>}
+      <PageHead title="Lojas" subtitle="Cada loja é auditada com os dados reais dela: relatórios importados, planilha do ERP, XML de NF-e ou conta conectada por API." />
+      {params.get('conectada') && <div className="alert ok">Conta autorizada. A próxima auditoria já usa os dados da API do marketplace.</div>}
       {params.get('boas-vindas') && data.stores.length === 0 && (
-        <div className="alert ok">Conta criada. Agora conecte sua primeira loja para a auditoria começar.</div>
+        <div className="alert ok">Conta criada. Agora cadastre sua primeira loja para começar a auditoria.</div>
       )}
       <Note message={message} />
 
       <div className="stack">
         <div className="card">
-          <div className="card-head"><h3>Lojas conectadas</h3></div>
+          <div className="card-head"><h3>Suas lojas</h3></div>
           {data.stores.length === 0 ? (
-            <Empty title="Nenhuma loja conectada"><p>Use o formulário ao lado para conectar a primeira.</p></Empty>
+            <Empty title="Nenhuma loja cadastrada"><p>Use o formulário abaixo para cadastrar a primeira.</p></Empty>
           ) : (
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Loja</th><th>Marketplace</th><th>Última auditoria</th><th className="right">Divergências</th><th /></tr></thead>
+                <thead><tr><th>Loja</th><th>Marketplace</th><th>Dados</th><th>Última auditoria</th><th className="right">Divergências</th><th /></tr></thead>
                 <tbody>
-                  {data.stores.map((store) => (
-                    <tr key={store.id}>
-                      <td style={{ minWidth: 220 }}><div className="strong">{store.name}</div>{store.connector.includes('demo') ? <Badge tone="warn">Dados de demonstração</Badge> : <Badge tone="success">Conta conectada</Badge>}</td>
-                      <td style={{ minWidth: 190 }}>{MARKETPLACE_LABEL[store.marketplace]} · {store.region}<div className="muted small nowrap">{integer(store.erpProductCount)} produtos do ERP · {integer(store.nfeCount)} NF-e</div></td>
-                      <td className="nowrap">{store.lastAuditAt ? dateTime(store.lastAuditAt) : '—'}</td>
-                      <td className="right num">{integer(store.discrepancyCount)}</td>
-                      <td className="right">
-                        <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
-                        {can('ADMIN') && store.connector !== 'demo' && (
-                          <>
-                            {store.connector.includes('demo') && (
+                  {data.stores.map((store) => {
+                    const live = LIVE_MARKETPLACES.includes(store.marketplace);
+                    const connected = store.connector === store.marketplace;
+                    return (
+                      <tr key={store.id}>
+                        <td style={{ minWidth: 200 }}><div className="strong">{store.name}</div>{storeSource(store)}</td>
+                        <td>{MARKETPLACE_LABEL[store.marketplace]} · {store.region}</td>
+                        <td className="muted small nowrap">{integer(store.erpProductCount)} produtos · {integer(store.nfeCount)} NF-e</td>
+                        <td className="nowrap">{store.lastAuditAt ? dateTime(store.lastAuditAt) : '—'}</td>
+                        <td className="right num">{integer(store.discrepancyCount)}</td>
+                        <td className="right">
+                          <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                            {live && <Link className="btn sm" to={`/app/lojas/${store.id}/dados`}>Dados da loja</Link>}
+                            {live && can('ADMIN') && oauth[store.marketplace] && (
                               <button
-                                className="btn sm"
+                                className="btn ghost sm"
                                 disabled={busy}
-                                title="Autoriza a Grandir a ler os dados reais desta conta"
+                                title="Autoriza a Grandir a ler os dados desta conta pela API do marketplace"
                                 onClick={() => run(async () => {
                                   const { url } = await api<{ url: string }>(`/stores/${store.id}/oauth/start`, { method: 'POST' });
                                   window.location.assign(url);
                                 }, 'Redirecionando para o marketplace…')}
                               >
-                                Conectar conta
+                                {connected ? 'Reconectar conta' : 'Conectar conta'}
                               </button>
                             )}
-                            <label className="btn ghost sm" title="CSV exportado do Bling, Tiny ou Omie com SKU, peso e medidas">
-                              Planilha do ERP
-                              <input type="file" accept=".csv,text/csv" hidden disabled={busy} onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                event.target.value = '';
-                                if (!file) return;
-                                void run(async () => {
-                                  const result = await api<{ imported: number; errors: unknown[] }>(`/stores/${store.id}/erp-products`, { method: 'PUT', file, contentType: 'text/csv' });
-                                  await reload();
-                                  if (result.errors.length) throw new Error(`${result.imported} produtos importados; ${result.errors.length} linhas ignoradas por dados inválidos.`);
-                                }, 'Cadastro do ERP importado e auditoria refeita.');
-                              }} />
-                            </label>
-                            <label className="btn ghost sm" title="Arquivos XML de NF-e modelo 55: entrada, remessa, retorno, venda e devolução">
-                              XML de NF-e
-                              <input type="file" accept=".xml,text/xml,application/xml" multiple hidden disabled={busy} onChange={(event) => {
-                                const files = [...(event.target.files ?? [])];
-                                event.target.value = '';
-                                if (files.length === 0) return;
-                                void run(async () => {
-                                  const payload = await Promise.all(files.map(async (file) => ({ name: file.name, xml: await file.text() })));
-                                  const result = await api<{ imported: number; duplicates: number; errors: { file: string; reason: string }[] }>(`/stores/${store.id}/nfe`, { method: 'PUT', body: { files: payload } });
-                                  await reload();
-                                  if (result.errors.length) throw new Error(`${result.imported} notas importadas; ${result.errors.length} recusadas. Primeira: ${result.errors[0].file} — ${result.errors[0].reason}`);
-                                  if (result.imported === 0) throw new Error('Nenhuma nota nova: todas já estavam importadas.');
-                                }, 'Notas fiscais importadas e auditoria refeita.');
-                              }} />
-                            </label>
-                          </>
-                        )}
-                        {can('ANALYST') && (
-                          <button
-                            className="btn ghost sm"
-                            disabled={busy}
-                            onClick={() => run(async () => { await api(`/stores/${store.id}/audit`, { method: 'POST' }); await reload(); }, 'Auditoria concluída.')}
-                          >
-                            Auditar agora
-                          </button>
-                        )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {can('ANALYST') && store.status !== 'AGUARDANDO_DADOS' && (
+                              <button
+                                className="btn ghost sm"
+                                disabled={busy}
+                                onClick={() => run(async () => { await api(`/stores/${store.id}/audit`, { method: 'POST' }); await reload(); }, 'Auditoria concluída.')}
+                              >
+                                Auditar agora
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -144,27 +137,28 @@ export function Stores() {
         </div>
 
         {can('ADMIN') && (
-          <form className="card card-pad stack" onSubmit={connect}>
-            <h3 style={{ fontSize: 16 }}>Conectar loja</h3>
-            <div className="alert info small">
-              Neste ambiente a conexão usa <b>dados de demonstração</b>: a loja recebe uma operação sintética para você avaliar a
-              auditoria. Mercado Livre e Shopee usam as regras brasileiras (frete cubado, comissão, repasse, devoluções e NF-e).
-              A integração com a API oficial de cada marketplace depende de credenciais de parceiro.
-            </div>
+          <form className="card card-pad stack" onSubmit={create}>
+            <h3 style={{ fontSize: 16 }}>Cadastrar loja</h3>
+            <p className="muted">
+              A loja começa vazia. Depois de cadastrar, envie os relatórios dela em “Dados da loja”
+              {oauth.mercadolivre || oauth.shopee ? ' ou conecte a conta pela API do marketplace.' : '. A conexão direta por API será habilitada quando as credenciais do aplicativo forem configuradas.'}
+            </p>
             <div className="form-grid" style={{ gridTemplateColumns: '2fr 1fr 1fr' }}>
               <label className="field"><span>Nome da loja</span>
                 <input className="input" required minLength={2} maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
               <label className="field"><span>Marketplace</span>
                 <select className="input" value={form.marketplace} onChange={(e) => setForm({ ...form, marketplace: e.target.value })}>
-                  {Object.entries(MARKETPLACE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  {Object.entries(MARKETPLACE_LABEL).map(([value, label]) => {
+                    const available = demoMode || LIVE_MARKETPLACES.includes(value);
+                    return <option key={value} value={value} disabled={!available}>{label}{available ? '' : ' (em breve)'}</option>;
+                  })}
                 </select></label>
               <label className="field"><span>País de operação</span>
                 <select className="input" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}>
-                  <option value="BR">Brasil</option><option value="MX">México</option><option value="US">Estados Unidos</option>
-                  <option value="AR">Argentina</option><option value="CL">Chile</option><option value="CO">Colômbia</option>
+                  <option value="BR">Brasil</option>
                 </select></label>
             </div>
-            <button className="btn" disabled={busy} style={{ alignSelf: 'flex-start' }}>{busy ? 'Conectando e auditando…' : 'Conectar e auditar'}</button>
+            <button className="btn" disabled={busy} style={{ alignSelf: 'flex-start' }}>{busy ? 'Cadastrando…' : 'Cadastrar loja'}</button>
           </form>
         )}
       </div>
@@ -172,18 +166,17 @@ export function Stores() {
       <div className="card">
         <div className="card-head"><h3>Histórico de auditorias</h3></div>
         {data.runs.length === 0 ? (
-          <Empty title="Nenhuma auditoria executada" />
+          <Empty title="Nenhuma auditoria executada"><p>A auditoria roda sozinha a cada importação de dados.</p></Empty>
         ) : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Quando</th><th>Loja</th><th className="right">Registros lidos</th><th className="right">Divergências</th><th className="right">Novas</th><th className="right">Valor apurado</th><th className="right">Em espera</th><th className="right">Prescritas</th></tr></thead>
+              <thead><tr><th>Quando</th><th>Loja</th><th className="right">Registros lidos</th><th className="right">Divergências</th><th className="right">Novas</th><th className="right">Valor apurado</th></tr></thead>
               <tbody>
                 {data.runs.map((run) => (
                   <tr key={run.id}>
                     <td className="nowrap">{dateTime(run.finishedAt)}</td><td>{run.storeName}</td>
                     <td className="right num">{integer(run.eventsScanned)}</td><td className="right num">{integer(run.discrepanciesFound)}</td>
                     <td className="right num">{integer(run.newDiscrepancies)}</td><td className="right num strong">{money(run.valueFoundCents)}</td>
-                    <td className="right num">{integer(run.pendingCount)}</td><td className="right num">{integer(run.expiredCount)}</td>
                   </tr>
                 ))}
               </tbody>

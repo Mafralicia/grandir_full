@@ -7,7 +7,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createPasswordResetToken, logActivity, revokeUserSessions, ROLE_RANK, type Role } from '../auth/service';
 import type { Config } from '../config';
-import { CONNECTOR_FOR, MARKETPLACES } from '../connectors/index';
+import { initialConnector, isDemoConnector, MARKETPLACES } from '../connectors/index';
 import { NfeError, parseNfeXml, toEngineInvoices } from '../connectors/erp/nfe';
 import { parseErpProducts } from '../connectors/erp/sheet';
 import { nowIso, type Db } from '../db';
@@ -173,16 +173,23 @@ export async function portalRoutes(app: FastifyInstance, deps: PortalDeps): Prom
     const { total } = scope.get<{ total: number }>('SELECT COUNT(*) AS total FROM stores WHERE tenant_id = :tenantId')!;
     if (total >= MAX_STORES) throw conflict(`Limite de ${MAX_STORES} lojas por conta atingido.`);
 
-    // Todos os conectores deste ambiente operam com dados sintéticos, sem credenciais de marketplace.
+    const connector = initialConnector(body.marketplace, config.demoMode);
+    const demo = isDemoConnector(connector);
     const storeId = randomUUID();
     scope.run(
       `INSERT INTO stores (id, tenant_id, name, marketplace, region, connector, created_at)
        VALUES (:id, :tenantId, :name, :marketplace, :region, :connector, :createdAt)`,
-      { id: storeId, ...body, connector: CONNECTOR_FOR[body.marketplace], createdAt: nowIso() },
+      { id: storeId, ...body, connector, createdAt: nowIso() },
     );
+    // Loja real nasce vazia, aguardando os dados do seller: não há o que auditar ainda.
+    if (!demo) {
+      scope.run("UPDATE stores SET status = 'AGUARDANDO_DADOS' WHERE tenant_id = :tenantId AND id = :storeId", { storeId });
+      audit(request, 'LOJA_CONECTADA', body.name);
+      reply.status(201);
+      return { id: storeId, audit: null };
+    }
     const summary = await runStoreAudit(scope, config, storeId);
-    // Só a loja genérica ganha histórico simulado; as brasileiras ficam com as divergências em aberto, prontas para virar dossiê.
-    if (CONNECTOR_FOR[body.marketplace] === 'demo') simulateDemoHistory(scope, storeId);
+    if (connector === 'demo') simulateDemoHistory(scope, storeId);
     audit(request, 'LOJA_CONECTADA', body.name);
     reply.status(201);
     return { id: storeId, audit: summary };

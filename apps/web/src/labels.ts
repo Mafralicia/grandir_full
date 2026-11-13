@@ -120,6 +120,7 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   MEMBRO_ALTERADO: 'Acesso de membro alterado',
   DOSSIE_EXPORTADO: 'Dossiê exportado',
   NFE_IMPORTADAS: 'XML de NF-e importados',
+  RELATORIO_IMPORTADO: 'Relatório importado',
   CONTA_DE_MARKETPLACE_CONECTADA: 'Conta de marketplace conectada',
   PLANILHA_ERP_IMPORTADA: 'Planilha do ERP importada',
 };

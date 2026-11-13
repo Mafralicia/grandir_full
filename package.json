@@ -15,7 +15,7 @@
     "dev": "concurrently -n api,web -c green,cyan \"npm run dev -w @grandir/api\" \"npm run dev -w @grandir/web\"",
     "dev:api": "npm run dev -w @grandir/api",
     "dev:web": "npm run dev -w @grandir/web",
-    "seed": "npm run seed -w @grandir/api",
+    "seed:demo": "npm run seed -w @grandir/api",
     "build": "npm run build -w @grandir/web",
     "test": "node --import tsx --test packages/engines/test/*.test.ts apps/api/test/*.test.ts",
     "typecheck": "tsc -p packages/engines && tsc -p apps/api && tsc -p apps/web"

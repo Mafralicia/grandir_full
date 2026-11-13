@@ -1,4 +1,6 @@
-import type { Discrepancy, ErpProduct, Nfe, SkuReconciliation } from '@grandir/engines';
+import type { Discrepancy, ErpProduct, LogisticsIncident, MarketplaceOrder, Nfe, ReturnCase, SkuReconciliation, WarehouseReceipt } from '@grandir/engines';
+import { AppError } from '../errors';
+import { mercadoLivreImportConnector, shopeeImportConnector } from './br/importSource';
 import type { IntegrationApps } from '../integrations/tokens';
 import { mercadoLivreLiveConnector, shopeeLiveConnector } from './br/liveSources';
 import { mercadoLivreConnector } from './br/mercadolivre';
@@ -18,6 +20,15 @@ export interface StoreRef {
   invoices: Nfe[];
   /** Credenciais dos aplicativos registrados nos marketplaces (para assinar chamadas). */
   apps: IntegrationApps;
+  /** Registros importados dos relatórios do seller. */
+  imported: ImportedData;
+}
+
+export interface ImportedData {
+  orders: MarketplaceOrder[];
+  incidents: LogisticsIncident[];
+  returns: ReturnCase[];
+  receipts: WarehouseReceipt[];
 }
 
 export interface AuditOutcome {
@@ -40,16 +51,32 @@ export interface MarketplaceConnector {
 }
 
 export const connectors: Record<string, MarketplaceConnector> = Object.fromEntries(
-  [demoConnector, mercadoLivreConnector, shopeeConnector, mercadoLivreLiveConnector, shopeeLiveConnector].map((connector) => [connector.id, connector]),
+  [demoConnector, mercadoLivreConnector, shopeeConnector, mercadoLivreLiveConnector, shopeeLiveConnector, mercadoLivreImportConnector, shopeeImportConnector].map((connector) => [connector.id, connector]),
 );
 
 export const MARKETPLACES = ['amazon', 'mercadolivre', 'shopee', 'magalu'] as const;
 export type Marketplace = (typeof MARKETPLACES)[number];
 
-/** Conector inicial de cada marketplace: dados sintéticos, até a loja autorizar a conta real por OAuth. */
-export const CONNECTOR_FOR: Record<Marketplace, string> = {
+/** Marketplaces que já têm motor de regras e entrada de dados reais. */
+export const AVAILABLE_MARKETPLACES: readonly Marketplace[] = ['mercadolivre', 'shopee'];
+
+const DEMO_CONNECTOR: Record<Marketplace, string> = {
   amazon: demoConnector.id,
   magalu: demoConnector.id,
   mercadolivre: mercadoLivreConnector.id,
   shopee: shopeeConnector.id,
 };
+
+/**
+ * Conector com que uma loja nasce. Em uso real, a loja começa vazia e é alimentada por
+ * arquivos importados até autorizar a conta por OAuth. Os geradores sintéticos só entram
+ * com o modo de demonstração ligado.
+ */
+export function initialConnector(marketplace: Marketplace, demoMode: boolean): string {
+  if (demoMode) return DEMO_CONNECTOR[marketplace];
+  if (marketplace === 'mercadolivre') return mercadoLivreImportConnector.id;
+  if (marketplace === 'shopee') return shopeeImportConnector.id;
+  throw new AppError(400, 'MARKETPLACE_EM_BREVE', 'Este marketplace ainda não está disponível. Por enquanto a Grandir audita Mercado Livre e Shopee.');
+}
+
+export const isDemoConnector = (connector: string): boolean => connector === demoConnector.id || connector.endsWith('-demo');

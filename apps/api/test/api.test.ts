@@ -49,7 +49,7 @@ const call = (client: Client, method: 'GET' | 'POST' | 'PATCH', url: string, pay
   });
 
 before(async () => {
-  const config = loadConfig({ NODE_ENV: 'test', UPLOAD_DIR: mkdtempSync(join(tmpdir(), 'grandir-test-')) });
+  const config = loadConfig({ NODE_ENV: 'test', GRANDIR_DEMO_MODE: 'true', UPLOAD_DIR: mkdtempSync(join(tmpdir(), 'grandir-test-')) });
   db = openDb(':memory:');
   app = await buildApp({ config, db, mailer: { send: async (mail) => void outbox.push(mail) } });
 });

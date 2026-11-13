@@ -131,7 +131,7 @@ describe('OAuth e coleta de dados reais (API simulada)', () => {
 
   before(async () => {
     const config = loadConfig({
-      NODE_ENV: 'test', UPLOAD_DIR: mkdtempSync(join(tmpdir(), 'grandir-test-')),
+      NODE_ENV: 'test', GRANDIR_DEMO_MODE: 'true', UPLOAD_DIR: mkdtempSync(join(tmpdir(), 'grandir-test-')),
       ML_CLIENT_ID: 'app-ml', ML_CLIENT_SECRET: 'segredo-ml', WEB_ORIGIN: 'http://localhost:5173',
     });
     db = openDb(':memory:');

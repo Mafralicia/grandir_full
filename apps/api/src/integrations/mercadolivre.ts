@@ -1,4 +1,4 @@
-import { createHttp, type Http } from './http';
+import { createHttp, IntegrationError, type Http } from './http';
 
 /**
  * Cliente da API do Mercado Livre (OAuth 2.0 com authorization code).
@@ -32,7 +32,7 @@ export function mlAuthorizeUrl(app: MlApp, state: string): string {
 
 interface TokenResponse {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
   expires_in: number;
   user_id: number;
 }
@@ -43,6 +43,10 @@ async function token(http: Http, app: MlApp, params: Record<string, string>): Pr
     headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
     body: new URLSearchParams({ client_id: app.clientId, client_secret: app.clientSecret, ...params }).toString(),
   });
+  // O refresh token só vem quando o aplicativo tem o escopo offline_access; sem ele o acesso acabaria em 6 horas.
+  if (!response.refresh_token) {
+    throw new IntegrationError(400, 'O Mercado Livre não devolveu um refresh token. Ative o escopo offline_access no aplicativo e autorize de novo.', null);
+  }
   return {
     accessToken: response.access_token,
     refreshToken: response.refresh_token,

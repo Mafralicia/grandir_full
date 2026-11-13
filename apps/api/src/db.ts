@@ -131,6 +131,24 @@ CREATE TABLE IF NOT EXISTS erp_products (
   PRIMARY KEY (tenant_id, store_id, sku)
 );
 
+CREATE TABLE IF NOT EXISTS imported_records (
+  tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  store_id    TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,
+  record_key  TEXT NOT NULL,
+  record_json TEXT NOT NULL,
+  imported_at TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, store_id, kind, record_key)
+);
+
+CREATE TABLE IF NOT EXISTS import_mappings (
+  tenant_id    TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  store_id     TEXT NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL,
+  mapping_json TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, store_id, kind)
+);
+
 CREATE TABLE IF NOT EXISTS oauth_states (
   state_hash  TEXT PRIMARY KEY,
   tenant_id   TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

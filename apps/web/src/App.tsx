@@ -4,6 +4,7 @@ import { Billing, Security, Stores, Team } from './pages/Account';
 import { ForgotPassword, Login, ResetPassword, Signup } from './pages/AuthPages';
 import { ClaimDetail, ClaimsList } from './pages/Claims';
 import { Dashboard } from './pages/Dashboard';
+import { DataImport } from './pages/DataImport';
 import { CaseDetail, Dossiers } from './pages/Dossiers';
 import { Landing } from './pages/Landing';
 import { Discrepancies, Reconciliation } from './pages/Operations';
@@ -35,6 +36,7 @@ export function App() {
         <Route path="chamados/:id" element={<ClaimDetail />} />
         <Route path="faturamento" element={<Billing />} />
         <Route path="lojas" element={<Stores />} />
+        <Route path="lojas/:id/dados" element={<DataImport />} />
         <Route path="equipe" element={<Team />} />
         <Route path="seguranca" element={<Security />} />
       </Route>

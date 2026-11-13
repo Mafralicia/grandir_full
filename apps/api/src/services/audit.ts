@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BALANCE_REFERENCE_PREFIX, type ErpProduct, type Nfe } from '@grandir/engines';
+import type { ImportedData } from '../connectors/index';
 import { freshTokens } from '../integrations/tokens';
 import type { Config } from '../config';
 import { connectors } from '../connectors/index';
@@ -45,6 +46,13 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
   const invoices = scope
     .all<{ doc_json: string }>('SELECT doc_json FROM nfe_documents WHERE tenant_id = :tenantId AND store_id = :storeId', { storeId })
     .flatMap((row) => JSON.parse(row.doc_json) as Nfe[]);
+  const imported: ImportedData = { orders: [], incidents: [], returns: [], receipts: [] };
+  for (const row of scope.all<{ kind: keyof ImportedData; record_json: string }>(
+    'SELECT kind, record_json FROM imported_records WHERE tenant_id = :tenantId AND store_id = :storeId',
+    { storeId },
+  )) {
+    (imported[row.kind] as unknown[] | undefined)?.push(JSON.parse(row.record_json));
+  }
   // Conectores reais recebem tokens válidos; a renovação acontece aqui, antes da coleta.
   const live = store.connector === 'mercadolivre' || store.connector === 'shopee';
   const liveTokens = live ? await freshTokens(scope, config, storeId, store.connector as 'mercadolivre' | 'shopee') : null;
@@ -52,6 +60,7 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
     {
       erpProducts,
       invoices,
+      imported,
       apps: config.integrations,
       id: store.id,
       createdAt: store.created_at,

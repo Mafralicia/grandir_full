@@ -74,7 +74,7 @@ export function Shell() {
         <div className="inner">
           {me.tenant.demoData && (
             <div>
-              <span className="demo-pill">Ambiente de demonstração — os dados exibidos são sintéticos.</span>
+              <span className="demo-pill">Modo de teste ligado — esta conta tem dados sintéticos, não dados reais.</span>
             </div>
           )}
           <Outlet />

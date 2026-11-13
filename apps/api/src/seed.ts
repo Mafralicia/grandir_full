@@ -17,6 +17,10 @@ const DEMO_EMAIL = 'demo@grandir.test';
 
 const config = loadConfig();
 if (config.isProd) throw new Error('O seed de demonstração não roda em produção.');
+if (!config.demoMode) {
+  console.error('O seed cria dados SINTÉTICOS e só roda com GRANDIR_DEMO_MODE=true. Em uso real, crie sua conta pela tela de cadastro e importe os dados da loja.');
+  process.exit(1);
+}
 const db = openDb(config.databasePath);
 
 const existing = db.prepare('SELECT tenant_id FROM users WHERE email = ?').get(DEMO_EMAIL) as { tenant_id: string } | undefined;

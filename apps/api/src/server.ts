@@ -10,6 +10,7 @@ import type { Db } from './db';
 import { AppError, forbidden, unauthorized } from './errors';
 import { consoleMailer, type Mailer } from './mailer';
 import { dossierRoutes } from './routes/dossiers';
+import { importRoutes } from './routes/imports';
 import { oauthRoutes } from './routes/oauth';
 import { portalRoutes } from './routes/portal';
 import { safeEqual } from './security/crypto';
@@ -105,6 +106,8 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
   await portalRoutes(app, { db, config, mailer, requireAuth });
   await dossierRoutes(app, { db, requireAuth });
   await oauthRoutes(app, { db, config, requireAuth });
+  await importRoutes(app, { db, config, requireAuth });
+  app.get('/api/meta', async () => ({ demoMode: config.demoMode, oauth: { mercadolivre: config.integrations.mercadolivre !== null, shopee: config.integrations.shopee !== null } }));
 
   return app;
 }

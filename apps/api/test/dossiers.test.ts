@@ -35,7 +35,7 @@ const post = (client: Client, url: string, payload: object) =>
   app.inject({ method: 'POST', url, payload, headers: { cookie: client.cookie, 'x-csrf-token': client.csrf } });
 
 before(async () => {
-  const config = loadConfig({ NODE_ENV: 'test', UPLOAD_DIR: mkdtempSync(join(tmpdir(), 'grandir-test-')) });
+  const config = loadConfig({ NODE_ENV: 'test', GRANDIR_DEMO_MODE: 'true', UPLOAD_DIR: mkdtempSync(join(tmpdir(), 'grandir-test-')) });
   db = openDb(':memory:');
   app = await buildApp({ config, db, mailer: { send: async () => undefined } });
 });

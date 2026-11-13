@@ -31,7 +31,7 @@ export function Dashboard() {
         <div className="card">
           <Empty title="Nenhuma loja conectada">
             <p style={{ maxWidth: 440, margin: '0 auto 18px' }}>
-              Assim que uma loja é conectada, a auditoria roda sobre o histórico contestável e as divergências aparecem aqui.
+              Cadastre a loja e envie os relatórios dela (ou conecte a conta por API): a auditoria roda sobre esses dados e as divergências aparecem aqui.
             </p>
             {can('ADMIN') ? <Link className="btn" to="/app/lojas?boas-vindas=1">Conectar loja</Link> : <p>Peça a um administrador para conectar a loja.</p>}
           </Empty>

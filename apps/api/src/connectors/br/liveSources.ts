@@ -22,7 +22,11 @@ const cents = (value: number | undefined | null) => Math.round((value ?? 0) * 10
 const tokensOf = (store: StoreRef) => store.credentials as unknown as OAuthTokens;
 
 function emptyInput(store: StoreRef, marketplace: BrAuditInput['marketplace'], asOf: string): BrAuditInput {
-  return { asOf, marketplace, products: store.erpProducts, orders: [], incidents: [], returns: [], invoices: store.invoices, receipts: [], marketplaceStock: {} };
+  // O que a API ainda não entrega (lotes, devoluções, indenizações) vem dos relatórios importados.
+  return {
+    asOf, marketplace, products: store.erpProducts, orders: [], incidents: [...store.imported.incidents], returns: [...store.imported.returns],
+    invoices: store.invoices, receipts: [...store.imported.receipts], marketplaceStock: {},
+  };
 }
 
 const mercadoLivreLive: BrDataSource = {
