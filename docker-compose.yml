@@ -1,0 +1,34 @@
+# Produção em uma máquina: o Grandir atrás do Caddy, que emite e renova o certificado HTTPS.
+# Crie um arquivo .env ao lado deste com, no mínimo:
+#   DOMAIN=app.seudominio.com.br
+#   DATA_ENCRYPTION_KEY=<32 bytes em base64>
+#   EMAIL_DELIVERY=disabled   (enquanto não houver provedor de e-mail; ver docs/DEPLOY.md)
+# e suba com:  docker compose up -d --build
+services:
+  grandir:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      WEB_ORIGIN: https://${DOMAIN:?defina DOMAIN no .env}
+      OAUTH_REDIRECT_BASE: https://${DOMAIN}
+    volumes:
+      - grandir-data:/data
+    expose:
+      - "4000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - grandir
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from ${DOMAIN} --to grandir:4000
+    volumes:
+      - caddy-data:/data
+
+volumes:
+  grandir-data:
+  caddy-data:

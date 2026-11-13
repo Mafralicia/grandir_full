@@ -1,0 +1,28 @@
+{
+  "name": "@grandir/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "start": "tsx --env-file-if-exists=../../.env src/index.ts",
+    "build": "node ../../scripts/build-api.mjs",
+    "start:prod": "node --enable-source-maps dist/index.js",
+    "seed": "tsx --env-file-if-exists=../../.env src/seed.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/rate-limit": "^10.2.0",
+    "@fastify/static": "^10.1.11",
+    "@grandir/engines": "*",
+    "fast-xml-parser": "^5.12.0",
+    "fastify": "^5.2.0",
+    "fflate": "^0.8.3",
+    "pdfkit": "^0.20.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/pdfkit": "^0.17.7"
+  }
+}

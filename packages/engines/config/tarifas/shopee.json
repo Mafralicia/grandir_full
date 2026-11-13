@@ -1,0 +1,66 @@
+{
+  "marketplace": "shopee",
+  "aviso": "Nenhuma versão abaixo foi conferida na Central do Vendedor da Shopee (a página oficial não pôde ser lida em 12/11/2026). Os valores vêm de fontes secundárias. Confirme cada versão e mude \"verified\" para true antes de usar em contestações reais. As tabelas são as de vendedor CNPJ; vendedores CPF têm adicional por item que não está modelado.",
+  "versions": [
+    {
+      "id": "shopee-br-2025-01",
+      "effectiveFrom": "2025-01-01",
+      "effectiveTo": "2026-02-28",
+      "verified": false,
+      "sources": ["https://tributei.net/blog/como-precificar-na-shopee/"],
+      "notes": "Modelo anterior a março de 2026 segundo fontes secundárias: 14% de comissão mais 6% do Programa de Frete Grátis (20% no total para participantes), valor fixo de R$ 4,00 por item e teto de R$ 100 de comissão por item. Aqui o seller é tratado como participante do programa.",
+      "commission": [{ "belowCents": null, "rateBps": 2000, "fixedCents": 400 }],
+      "commissionCapCents": 10000,
+      "transactionFeeBps": 0,
+      "cubicDivisor": 6000,
+      "freight": [{ "minPriceCents": 0, "tiers": [
+        { "maxG": 500, "cents": 1590 }, { "maxG": 1000, "cents": 1890 }, { "maxG": 2000, "cents": 2290 }, { "maxG": 5000, "cents": 2890 }, { "maxG": null, "cents": 4990 }
+      ] }]
+    },
+    {
+      "id": "shopee-br-2026-03",
+      "effectiveFrom": "2026-03-01",
+      "effectiveTo": "2026-09-30",
+      "verified": false,
+      "sources": [
+        "https://multdrop.com.br/taxas-da-shopee/",
+        "https://blog.irroba.com.br/novas-taxas-shopee-2026-guia-de-comissoes-e-frete/"
+      ],
+      "notes": "Desde 1º de março de 2026 a comissão passou a variar pela faixa de preço do item, sem o teto de R$ 100 e já incluindo a taxa de transação. O valor fixo acima de R$ 500 aparece como R$ 26 em uma fonte e R$ 28 em outra; foi adotado R$ 26. O custo do Programa de Frete Grátis é tratado como incluído. Os valores de frete são ilustrativos.",
+      "commission": [
+        { "belowCents": 8000, "rateBps": 2000, "fixedCents": 400 },
+        { "belowCents": 10000, "rateBps": 1400, "fixedCents": 1600 },
+        { "belowCents": 20000, "rateBps": 1400, "fixedCents": 2000 },
+        { "belowCents": 50000, "rateBps": 1400, "fixedCents": 2600 },
+        { "belowCents": null, "rateBps": 1400, "fixedCents": 2600 }
+      ],
+      "commissionCapCents": null,
+      "transactionFeeBps": 0,
+      "cubicDivisor": 6000,
+      "freight": [{ "minPriceCents": 0, "tiers": [
+        { "maxG": 500, "cents": 1590 }, { "maxG": 1000, "cents": 1890 }, { "maxG": 2000, "cents": 2290 }, { "maxG": 5000, "cents": 2890 }, { "maxG": null, "cents": 4990 }
+      ] }]
+    },
+    {
+      "id": "shopee-br-2026-10",
+      "effectiveFrom": "2026-10-01",
+      "effectiveTo": null,
+      "verified": false,
+      "sources": ["https://multdrop.com.br/taxas-da-shopee/"],
+      "notes": "A partir de 1º de outubro de 2026 o valor fixo por item para produtos de até R$ 79,99 passou de R$ 4,00 para R$ 4,50, segundo fonte que cita a política oficial de comissão. Demais faixas mantidas.",
+      "commission": [
+        { "belowCents": 8000, "rateBps": 2000, "fixedCents": 450 },
+        { "belowCents": 10000, "rateBps": 1400, "fixedCents": 1600 },
+        { "belowCents": 20000, "rateBps": 1400, "fixedCents": 2000 },
+        { "belowCents": 50000, "rateBps": 1400, "fixedCents": 2600 },
+        { "belowCents": null, "rateBps": 1400, "fixedCents": 2600 }
+      ],
+      "commissionCapCents": null,
+      "transactionFeeBps": 0,
+      "cubicDivisor": 6000,
+      "freight": [{ "minPriceCents": 0, "tiers": [
+        { "maxG": 500, "cents": 1590 }, { "maxG": 1000, "cents": 1890 }, { "maxG": 2000, "cents": 2290 }, { "maxG": 5000, "cents": 2890 }, { "maxG": null, "cents": 4990 }
+      ] }]
+    }
+  ]
+}
