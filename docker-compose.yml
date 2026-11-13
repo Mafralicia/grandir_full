@@ -2,6 +2,7 @@
 # Crie um arquivo .env ao lado deste com, no mínimo:
 #   DOMAIN=app.seudominio.com.br
 #   DATA_ENCRYPTION_KEY=<32 bytes em base64>
+#   EMAIL_DELIVERY=disabled   (enquanto não houver provedor de e-mail; ver docs/DEPLOY.md)
 # e suba com:  docker compose up -d --build
 services:
   grandir:

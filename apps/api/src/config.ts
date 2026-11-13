@@ -22,6 +22,11 @@ const schema = z.object({
   GRANDIR_DEMO_MODE: z.enum(['true', 'false']).default('false'),
   /** Intervalo da auditoria automática das lojas conectadas por API, em horas. 0 desliga. */
   SYNC_INTERVAL_HOURS: z.coerce.number().min(0).max(720).default(24),
+  /**
+   * "disabled" declara que a instância roda sem enviar e-mail (redefinição de senha e convites não
+   * chegam). Em produção, sem provedor de e-mail, a aplicação só inicia com essa declaração.
+   */
+  EMAIL_DELIVERY: z.enum(['disabled']).optional(),
   ML_CLIENT_ID: z.string().optional(),
   ML_CLIENT_SECRET: z.string().optional(),
   SHOPEE_PARTNER_ID: z.string().optional(),
@@ -49,6 +54,11 @@ export interface Config {
   webDist: string | null;
   webOrigins: string[];
   encryptionKey: Buffer;
+  /**
+   * "console": escreve o e-mail inteiro no log (só fora de produção). "disabled": descarta o
+   * e-mail e registra apenas destinatário e assunto.
+   */
+  emailDelivery: 'console' | 'disabled';
   defaultFeeRateBps: number;
   integrations: IntegrationApps;
   demoMode: boolean;
@@ -62,8 +72,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     DATABASE_PATH: env.DATABASE_PATH || undefined,
     UPLOAD_DIR: env.UPLOAD_DIR || undefined,
     WEB_DIST: env.WEB_DIST || undefined,
+    EMAIL_DELIVERY: env.EMAIL_DELIVERY || undefined,
   });
   const isProd = parsed.NODE_ENV === 'production';
+
+  // Sem provedor de e-mail, produção não pode cair no remetente de desenvolvimento, que grava no
+  // log os links de redefinição de senha e de convite.
+  if (isProd && parsed.EMAIL_DELIVERY !== 'disabled') {
+    throw new Error(
+      'Nenhum provedor de e-mail configurado. Para iniciar em produção sem enviar e-mail (redefinição de senha e convites não chegarão), defina EMAIL_DELIVERY=disabled.',
+    );
+  }
 
   let encryptionKey: Buffer;
   if (parsed.DATA_ENCRYPTION_KEY) {
@@ -111,6 +130,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     demoMode: parsed.GRANDIR_DEMO_MODE === 'true',
     syncIntervalHours: parsed.SYNC_INTERVAL_HOURS,
     encryptionKey,
+    emailDelivery: parsed.EMAIL_DELIVERY ?? 'console',
     defaultFeeRateBps: parsed.DEFAULT_FEE_RATE_BPS,
   };
 }

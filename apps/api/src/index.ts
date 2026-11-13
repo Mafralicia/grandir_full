@@ -11,6 +11,10 @@ if (!config.isProd && !process.env.DATA_ENCRYPTION_KEY) {
   app.log.warn('DATA_ENCRYPTION_KEY não definida: usando chave fixa de desenvolvimento. Não use com dados reais.');
 }
 
+if (config.emailDelivery === 'disabled') {
+  app.log.warn('EMAIL_DELIVERY=disabled: nenhum e-mail é enviado. Redefinição de senha e convites não chegam aos usuários.');
+}
+
 await app.listen({ port: config.port, host: config.host });
 const stopScheduler = startScheduler(db, config, (message) => app.log.info(message));
 

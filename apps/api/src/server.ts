@@ -10,7 +10,7 @@ import { resolveSession, type AuthContext } from './auth/service';
 import type { Config } from './config';
 import type { Db } from './db';
 import { AppError, forbidden, unauthorized } from './errors';
-import { consoleMailer, type Mailer } from './mailer';
+import { consoleMailer, discardMailer, type Mailer } from './mailer';
 import { dossierRoutes } from './routes/dossiers';
 import { importRoutes } from './routes/imports';
 import { oauthRoutes } from './routes/oauth';
@@ -32,7 +32,9 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
     bodyLimit: 256 * 1024,
     trustProxy: config.isProd,
   });
-  const mailer = options.mailer ?? consoleMailer((message) => app.log.info(message));
+  // O remetente que escreve o corpo no log só existe fora de produção: o corpo traz tokens de acesso.
+  const mailLog = (message: string): void => app.log.info(message);
+  const mailer = options.mailer ?? (!config.isProd && config.emailDelivery === 'console' ? consoleMailer(mailLog) : discardMailer(mailLog));
   // O prefixo __Host- obriga o navegador a exigir Secure, Path=/ e nenhum Domain.
   const cookieName = config.isProd ? '__Host-grandir_session' : 'grandir_session';
 

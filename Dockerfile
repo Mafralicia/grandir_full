@@ -1,6 +1,6 @@
 # Imagem de produção do Grandir: a API serve também o front-end, tudo na mesma origem.
 #   docker build -t grandir .
-#   docker run -p 4000:4000 -v grandir-data:/data -e DATA_ENCRYPTION_KEY=... -e WEB_ORIGIN=https://seu-dominio grandir
+#   docker run -p 4000:4000 -v grandir-data:/data -e DATA_ENCRYPTION_KEY=... -e EMAIL_DELIVERY=disabled -e WEB_ORIGIN=https://seu-dominio grandir
 
 FROM node:24-slim AS build
 WORKDIR /app

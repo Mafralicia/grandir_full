@@ -15,6 +15,7 @@ ficam em uma pasta, que precisa de disco persistente e de backup.
 | `NODE_ENV=production` | sim | Liga cookie `__Host-` com `Secure`, HSTS e a confiança no proxy |
 | `DATA_ENCRYPTION_KEY` | sim | Cifra tokens de marketplace e segredos de MFA. **Perder a chave é perder esses dados**: guarde uma cópia fora do servidor |
 | `WEB_ORIGIN` | sim | Origem pública, por exemplo `https://app.seudominio.com.br`. Requisições de outra origem são recusadas |
+| `EMAIL_DELIVERY=disabled` | sim, enquanto não houver provedor de e-mail | Declara que a instância roda sem enviar e-mail. Sem ela, a aplicação recusa iniciar em produção |
 | `DATABASE_PATH`, `UPLOAD_DIR` | recomendadas | Apontam para o disco persistente (na imagem: `/data`) |
 | `HOST`, `API_PORT` | conforme o ambiente | Na imagem: `0.0.0.0` e `4000` |
 | `WEB_DIST` | não | Pasta do build do front. Em produção, `apps/web/dist` é usada automaticamente |
@@ -37,6 +38,7 @@ Requisitos: uma máquina Linux com Docker, portas 80 e 443 abertas e um domínio
    ```
    DOMAIN=app.seudominio.com.br
    DATA_ENCRYPTION_KEY=<a chave gerada>
+   EMAIL_DELIVERY=disabled
    ```
 
 2. Suba:
@@ -87,9 +89,10 @@ vez — restaurar é parar a aplicação, repor `grandir.db` e `uploads` e subir
 - **Uma instância só.** O banco é um arquivo e a sincronização automática roda dentro do processo:
   duas instâncias duplicariam a sincronização e disputariam o arquivo. Escalar exige PostgreSQL e
   uma fila de tarefas.
-- **E-mail não é enviado.** Redefinição de senha e convites ainda são escritos no log
-  (`apps/api/src/mailer.ts`) — o log de produção, portanto, contém links sensíveis até o adaptador
-  de e-mail ser ligado.
+- **E-mail não é enviado.** Com `EMAIL_DELIVERY=disabled`, redefinição de senha e convites não
+  chegam a ninguém: o log registra só destinatário e assunto, nunca o link. Até o adaptador de
+  e-mail ser ligado (`apps/api/src/mailer.ts`), quem esquecer a senha não consegue recuperá-la
+  sozinho e convites de equipe não funcionam.
 - **Sem monitoramento de erros.** Os logs saem em JSON na saída padrão; ligue-os a um coletor.
 - **Health check:** `GET /api/health` responde 200 só se o banco responder.
 
