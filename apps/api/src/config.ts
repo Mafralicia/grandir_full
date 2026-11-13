@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -12,6 +13,8 @@ const schema = z.object({
   HOST: z.string().default('127.0.0.1'),
   DATABASE_PATH: z.string().min(1).optional(),
   UPLOAD_DIR: z.string().min(1).optional(),
+  /** Pasta com o build do front-end (apps/web/dist). Definida, a API serve o site na mesma origem. */
+  WEB_DIST: z.string().min(1).optional(),
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
   DATA_ENCRYPTION_KEY: z.string().optional(),
   DEFAULT_FEE_RATE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
@@ -42,6 +45,8 @@ export interface Config {
   host: string;
   databasePath: string;
   uploadDir: string;
+  /** Build do front-end servido pela própria API; null quando outro servidor cuida disso. */
+  webDist: string | null;
   webOrigins: string[];
   encryptionKey: Buffer;
   defaultFeeRateBps: number;
@@ -56,6 +61,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     DATA_ENCRYPTION_KEY: env.DATA_ENCRYPTION_KEY || undefined,
     DATABASE_PATH: env.DATABASE_PATH || undefined,
     UPLOAD_DIR: env.UPLOAD_DIR || undefined,
+    WEB_DIST: env.WEB_DIST || undefined,
   });
   const isProd = parsed.NODE_ENV === 'production';
 
@@ -72,6 +78,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     encryptionKey = createHash('sha256').update('grandir-chave-somente-desenvolvimento').digest();
   }
 
+  // Em produção, o build do front-end ao lado da API é servido automaticamente.
+  const webDist = parsed.WEB_DIST ? resolve(parsed.WEB_DIST) : isProd ? resolve(repoRoot, 'apps/web/dist') : null;
+  if (parsed.WEB_DIST && !existsSync(resolve(webDist!, 'index.html'))) throw new Error(`WEB_DIST não contém index.html: ${webDist}`);
   const webOrigins = parsed.WEB_ORIGIN.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean);
   const redirectBase = (parsed.OAUTH_REDIRECT_BASE ?? webOrigins[0]).replace(/\/$/, '');
   const integrations: IntegrationApps = {
@@ -96,6 +105,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: parsed.HOST,
     databasePath: parsed.DATABASE_PATH ?? resolve(repoRoot, 'data/grandir.db'),
     uploadDir: parsed.UPLOAD_DIR ?? resolve(repoRoot, 'data/uploads'),
+    webDist: webDist && existsSync(resolve(webDist, 'index.html')) ? webDist : null,
     webOrigins,
     integrations,
     demoMode: parsed.GRANDIR_DEMO_MODE === 'true',

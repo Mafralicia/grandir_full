@@ -31,6 +31,8 @@ Outros comandos:
 | `npm test` | Testes dos motores e da API (isolamento entre tenants, autenticação, permissões) |
 | `npm run typecheck` | Checagem de tipos dos três pacotes |
 | `npm run build` | Build de produção do front-end |
+| `npm run build:all` e `npm start` | Build de produção (front e API) e execução; ver [docs/DEPLOY.md](docs/DEPLOY.md) |
+| `node scripts/backup.mjs <pasta>` | Cópia de segurança do banco e dos anexos, com o app no ar |
 | `node scripts/real-flow-check.mjs . <pasta>` | Com o app rodando, cria uma conta de teste e percorre o caminho real pela interface (loja vazia → importação → auditoria) em 1440x900 |
 | `node scripts/gerar-relatorios-exemplo.mjs [pasta]` | Gera relatórios de exemplo sintéticos para testar a importação |
 | `npm run seed:demo` | Só com `GRANDIR_DEMO_MODE=true`: cria uma conta com dados **sintéticos**, para avaliar telas sem dados reais |

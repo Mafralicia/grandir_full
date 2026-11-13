@@ -285,6 +285,8 @@ export function openDb(path: string): Db {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+  // WAL: leituras não bloqueiam escritas, e uma queda no meio de uma escrita não corrompe o arquivo.
+  if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;');
   db.exec(SCHEMA);
   addColumn(db, 'discrepancies', 'details_json', 'TEXT');
   addColumn(db, 'claims', 'case_id', 'TEXT');

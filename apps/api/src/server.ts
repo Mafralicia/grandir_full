@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { authRoutes } from './auth/routes';
@@ -36,7 +37,16 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
   const cookieName = config.isProd ? '__Host-grandir_session' : 'grandir_session';
 
   await app.register(helmet, {
-    contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
+    // Só API: nada pode ser carregado. Servindo o site: apenas recursos da própria origem
+    // (estilos em atributo são usados pelo React; fontes e ícones pequenos vêm embutidos como data:).
+    contentSecurityPolicy: {
+      directives: config.webDist
+        ? {
+            defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'data:'], fontSrc: ["'self'", 'data:'],
+            connectSrc: ["'self'"], objectSrc: ["'none'"], baseUri: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"],
+          }
+        : { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+    },
     hsts: config.isProd,
     referrerPolicy: { policy: 'no-referrer' },
   });
@@ -54,8 +64,10 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
     if (origin && !config.webOrigins.includes(origin)) throw forbidden('Origem não autorizada.', 'ORIGEM_INVALIDA');
   });
 
-  app.addHook('onSend', async (_request, reply) => {
-    reply.header('Cache-Control', 'no-store');
+  app.addHook('onSend', async (request, reply) => {
+    // Os arquivos de /assets têm o hash do conteúdo no nome: podem ficar em cache para sempre.
+    const immutable = config.webDist !== null && request.url.startsWith('/assets/') && reply.statusCode === 200;
+    reply.header('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-store');
   });
 
   const requireAuth = async (request: FastifyRequest): Promise<void> => {
@@ -98,11 +110,24 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
     return reply.status(500).send({ error: { code: 'ERRO_INTERNO', message: 'Erro interno. Tente novamente.' } });
   });
 
-  app.setNotFoundHandler((_request, reply) =>
-    reply.status(404).send({ error: { code: 'NAO_ENCONTRADO', message: 'Rota não encontrada.' } }),
-  );
+  if (config.webDist) await app.register(fastifyStatic, { root: config.webDist, wildcard: false, index: 'index.html' });
 
-  app.get('/api/health', async () => ({ status: 'ok' }));
+  app.setNotFoundHandler((request, reply) => {
+    // As rotas do site são resolvidas no navegador: qualquer caminho que não seja da API nem um arquivo recebe o index.html.
+    const page = config.webDist && request.method === 'GET' && !request.url.startsWith('/api/') && !/\.[a-z0-9]{2,5}($|\?)/i.test(request.url);
+    if (page) return reply.type('text/html; charset=utf-8').sendFile('index.html');
+    return reply.status(404).send({ error: { code: 'NAO_ENCONTRADO', message: 'Rota não encontrada.' } });
+  });
+
+  // Verificação de saúde para o orquestrador: só responde "ok" se o banco responder.
+  app.get('/api/health', async (_request, reply) => {
+    try {
+      db.prepare('SELECT 1 AS ok').get();
+      return { status: 'ok' };
+    } catch {
+      return reply.status(503).send({ status: 'indisponivel' });
+    }
+  });
   await authRoutes(app, { db, config, mailer, cookieName, requireAuth });
   await portalRoutes(app, { db, config, mailer, requireAuth });
   await dossierRoutes(app, { db, requireAuth });
