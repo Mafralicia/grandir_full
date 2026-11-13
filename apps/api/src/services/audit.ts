@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BALANCE_REFERENCE_PREFIX, type ErpProduct, type Nfe } from '@grandir/engines';
 import type { ImportedData } from '../connectors/index';
-import { freshTokens } from '../integrations/tokens';
+import { freshTokens, LIVE_MARKETPLACES, type LiveMarketplace } from '../integrations/tokens';
 import type { Config } from '../config';
 import { connectors } from '../connectors/index';
 import { nowIso } from '../db';
@@ -54,8 +54,8 @@ export async function runStoreAudit(scope: TenantScope, config: Config, storeId:
     (imported[row.kind] as unknown[] | undefined)?.push(JSON.parse(row.record_json));
   }
   // Conectores reais recebem tokens válidos; a renovação acontece aqui, antes da coleta.
-  const live = store.connector === 'mercadolivre' || store.connector === 'shopee';
-  const liveTokens = live ? await freshTokens(scope, config, storeId, store.connector as 'mercadolivre' | 'shopee') : null;
+  const live = LIVE_MARKETPLACES.includes(store.connector as LiveMarketplace);
+  const liveTokens = live ? await freshTokens(scope, config, storeId, store.connector as LiveMarketplace) : null;
   const result = await connector.audit(
     {
       erpProducts,

@@ -25,6 +25,12 @@ const schema = z.object({
   SHOPEE_PARTNER_KEY: z.string().optional(),
   // Host de produção da Open Platform; o de testes é https://partner.test-stable.shopeemobile.com
   SHOPEE_API_HOST: z.string().url().default('https://partner.shopeemobile.com'),
+  TIKTOK_APP_KEY: z.string().optional(),
+  TIKTOK_APP_SECRET: z.string().optional(),
+  TIKTOK_SERVICE_ID: z.string().optional(),
+  TIKTOK_AUTH_HOST: z.string().url().default('https://services.tiktokshop.com'),
+  TIKTOK_TOKEN_HOST: z.string().url().default('https://auth.tiktok-shops.com'),
+  TIKTOK_API_HOST: z.string().url().default('https://open-api.tiktokglobalshop.com'),
   /** Origem pública que recebe o retorno do OAuth; padrão: a primeira origem do front-end. */
   OAUTH_REDIRECT_BASE: z.string().url().optional(),
 });
@@ -74,6 +80,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       : null,
     shopee: parsed.SHOPEE_PARTNER_ID && parsed.SHOPEE_PARTNER_KEY
       ? { partnerId: parsed.SHOPEE_PARTNER_ID, partnerKey: parsed.SHOPEE_PARTNER_KEY, host: parsed.SHOPEE_API_HOST.replace(/\/$/, ''), redirectUri: `${redirectBase}/api/oauth/shopee/callback` }
+      : null,
+    tiktok: parsed.TIKTOK_APP_KEY && parsed.TIKTOK_APP_SECRET && parsed.TIKTOK_SERVICE_ID
+      ? {
+          appKey: parsed.TIKTOK_APP_KEY, appSecret: parsed.TIKTOK_APP_SECRET, serviceId: parsed.TIKTOK_SERVICE_ID,
+          authHost: parsed.TIKTOK_AUTH_HOST.replace(/\/$/, ''), tokenHost: parsed.TIKTOK_TOKEN_HOST.replace(/\/$/, ''), apiHost: parsed.TIKTOK_API_HOST.replace(/\/$/, ''),
+        }
       : null,
   };
 

@@ -2,7 +2,7 @@ import type { Discrepancy, ErpProduct, LogisticsIncident, MarketplaceOrder, Nfe,
 import { AppError } from '../errors';
 import { mercadoLivreImportConnector, shopeeImportConnector, tiktokImportConnector } from './br/importSource';
 import type { IntegrationApps } from '../integrations/tokens';
-import { mercadoLivreLiveConnector, shopeeLiveConnector } from './br/liveSources';
+import { mercadoLivreLiveConnector, shopeeLiveConnector, tiktokLiveConnector } from './br/liveSources';
 import { mercadoLivreConnector } from './br/mercadolivre';
 import { shopeeConnector } from './br/shopee';
 import { demoConnector } from './demo';
@@ -51,7 +51,7 @@ export interface MarketplaceConnector {
 }
 
 export const connectors: Record<string, MarketplaceConnector> = Object.fromEntries(
-  [demoConnector, mercadoLivreConnector, shopeeConnector, mercadoLivreLiveConnector, shopeeLiveConnector, mercadoLivreImportConnector, shopeeImportConnector, tiktokImportConnector].map((connector) => [connector.id, connector]),
+  [demoConnector, mercadoLivreConnector, shopeeConnector, mercadoLivreLiveConnector, shopeeLiveConnector, tiktokLiveConnector, mercadoLivreImportConnector, shopeeImportConnector, tiktokImportConnector].map((connector) => [connector.id, connector]),
 );
 
 export const MARKETPLACES = ['amazon', 'mercadolivre', 'shopee', 'tiktok', 'magalu'] as const;

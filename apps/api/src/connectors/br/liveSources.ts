@@ -1,6 +1,7 @@
 import { addDays, type BrAuditInput, type LogisticsIncident, type MarketplaceOrder } from '@grandir/engines';
 import { mercadoLivreClient, type OAuthTokens } from '../../integrations/mercadolivre';
 import { shopeeClient } from '../../integrations/shopee';
+import { tiktokClient } from '../../integrations/tiktok';
 import { requireApp } from '../../integrations/tokens';
 import type { StoreRef } from '../index';
 import { brConnector, type BrDataSource } from './source';
@@ -124,5 +125,45 @@ function lostInTransit(marketplace: BrAuditInput['marketplace'], id: string, sku
   return { id, marketplace, kind: 'TRANSIT_LOSS', sku, quantity, occurredAt, orderId, shipmentId, compensatedCents: 0 };
 }
 
+const tiktokLive: BrDataSource = {
+  async load(store, marketplace, asOf) {
+    const client = tiktokClient(requireApp(store.apps, 'tiktok'), tokensOf(store));
+    // Pedidos importados por arquivo trazem o extrato (tarifas e repasse); a API, por enquanto, só os pedidos.
+    const input = emptyInput(store, marketplace, asOf);
+    const statements = new Map(store.imported.orders.map((order) => [`${order.orderId}|${order.sku}`, order]));
+    const orders = (await client.orders(new Date(addDays(asOf, -LOOKBACK_DAYS)), new Date(asOf))).slice(0, MAX_ORDERS);
+    for (const order of orders) {
+      for (const line of order.line_items) {
+        const sku = line.seller_sku || line.product_id || line.id || '';
+        if (!sku) continue;
+        const quantity = line.quantity ?? 1;
+        const known = statements.get(`${order.id}|${sku}`);
+        input.orders.push({
+          marketplace,
+          orderId: order.id,
+          shipmentId: order.packages?.[0]?.id ?? '',
+          trackingCode: order.tracking_number ?? '',
+          itemId: line.product_id ?? '',
+          sku,
+          quantity,
+          saleDate: new Date(order.create_time * 1000).toISOString(),
+          grossCents: cents(Number(line.sale_price ?? 0)) * quantity,
+          categoryId: '*',
+          listingType: 'classico',
+          // Tarifas, frete e repasse vêm do extrato; sem ele, o pedido não entra na conferência de repasse.
+          commissionCents: known?.commissionCents ?? 0,
+          feeCents: known?.feeCents ?? 0,
+          shippingChargedCents: known?.shippingChargedCents ?? 0,
+          billedWeightG: 0,
+          settledCents: known?.settledCents ?? null,
+          settledAt: known?.settledAt ?? null,
+        });
+      }
+    }
+    return input;
+  },
+};
+
+export const tiktokLiveConnector = brConnector('tiktok', 'TikTok Shop', 'tiktok', tiktokLive);
 export const mercadoLivreLiveConnector = brConnector('mercadolivre', 'Mercado Livre', 'mercadolivre', mercadoLivreLive);
 export const shopeeLiveConnector = brConnector('shopee', 'Shopee', 'shopee', shopeeLive);

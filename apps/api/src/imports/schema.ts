@@ -36,9 +36,9 @@ export const KIND_SPECS: Record<ImportKind, KindSpec> = {
     fields: [
       f('orderId', 'Número do pedido', 'text', true, 'Identificador do pedido ou da venda no marketplace.', ['n.º de venda', 'no de venda', 'numero da venda', 'numero do pedido', 'id do pedido', 'pedido', 'order id', 'order_sn', 'venda']),
       f('saleDate', 'Data da venda', 'date', true, 'Data em que o pedido foi feito.', ['data da venda', 'data de criacao do pedido', 'data do pedido', 'data de criacao', 'data', 'order creation date']),
-      f('sku', 'SKU', 'text', true, 'Código do produto, igual ao do seu ERP.', ['sku', 'numero de referencia sku', 'sku da variacao', 'codigo do produto', 'seller sku']),
+      f('sku', 'SKU', 'text', true, 'Código do produto, igual ao do seu ERP.', ['sku', 'numero de referencia sku', 'sku da variacao', 'codigo do produto', 'seller sku', 'sku reference no.']),
       f('quantity', 'Quantidade', 'int', true, 'Unidades vendidas na linha.', ['unidades', 'quantidade', 'qtd', 'qtde']),
-      f('grossCents', 'Valor da venda', 'money', true, 'Valor total dos produtos da linha, antes de tarifas.', ['receita por produtos (brl)', 'receita por produtos', 'valor total', 'subtotal do produto', 'valor da venda', 'total do pedido', 'preco total']),
+      f('grossCents', 'Valor da venda', 'money', true, 'Valor total dos produtos da linha, antes de tarifas.', ['receita por produtos (brl)', 'receita por produtos', 'valor total', 'subtotal do produto', 'valor da venda', 'total do pedido', 'preco total', 'product subtotal']),
       f('commissionCents', 'Comissão cobrada', 'money', false, 'Tarifa de venda ou comissão debitada.', ['tarifa de venda e impostos', 'tarifa de venda', 'taxa de comissao', 'comissao', 'taxa de servico']),
       f('feeCents', 'Tarifa fixa ou taxa de transação', 'money', false, 'Custo fixo por unidade ou taxa de transação, se vier separado.', ['custo fixo', 'tarifa fixa', 'taxa de transacao']),
       f('shippingChargedCents', 'Frete cobrado do seller', 'money', false, 'Valor do envio debitado de você.', ['tarifas de envio', 'custo de envio', 'frete', 'taxa de envio', 'valor do frete']),
@@ -120,7 +120,11 @@ export function suggestMapping(kind: ImportKind, headers: string[]): Record<stri
 export function parseMoney(raw: string): number | null {
   const text = raw.replace(/[R$\s ]/g, '');
   if (!text) return null;
-  const normalized = text.includes(',') ? text.replace(/\./g, '').replace(',', '.') : text;
+  // Com os dois separadores, o último é o decimal: "1.234,56" (brasileiro) e "1,234.56" (americano,
+  // que aparece em algumas exportações da Shopee) dão o mesmo valor.
+  const comma = text.lastIndexOf(',');
+  const dot = text.lastIndexOf('.');
+  const normalized = comma > dot ? text.replace(/\./g, '').replace(',', '.') : text.replace(/,/g, '');
   const value = Number(normalized);
   return Number.isFinite(value) ? Math.abs(Math.round(value * 100)) : null;
 }

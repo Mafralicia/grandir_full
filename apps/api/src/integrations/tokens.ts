@@ -4,13 +4,16 @@ import { decrypt, encrypt } from '../security/crypto';
 import type { TenantScope } from '../tenant';
 import { mlRefresh, type MlApp, type OAuthTokens } from './mercadolivre';
 import { shopeeRefresh, type ShopeeApp } from './shopee';
+import { tiktokRefresh, type TikTokApp } from './tiktok';
 
-export type LiveMarketplace = 'mercadolivre' | 'shopee';
+export type LiveMarketplace = 'mercadolivre' | 'shopee' | 'tiktok';
+export const LIVE_MARKETPLACES: readonly LiveMarketplace[] = ['mercadolivre', 'shopee', 'tiktok'];
 
 /** Credenciais do aplicativo registrado em cada marketplace; ausentes = integração desligada. */
 export interface IntegrationApps {
   mercadolivre: MlApp | null;
   shopee: ShopeeApp | null;
+  tiktok: TikTokApp | null;
 }
 
 export function requireApp<M extends LiveMarketplace>(apps: IntegrationApps, marketplace: M): NonNullable<IntegrationApps[M]> {
@@ -42,7 +45,9 @@ export async function freshTokens(scope: TenantScope, config: Config, storeId: s
   const renewed =
     marketplace === 'mercadolivre'
       ? await mlRefresh(requireApp(config.integrations, 'mercadolivre'), tokens.refreshToken)
-      : await shopeeRefresh(requireApp(config.integrations, 'shopee'), tokens.refreshToken, tokens.externalId);
+      : marketplace === 'shopee'
+        ? await shopeeRefresh(requireApp(config.integrations, 'shopee'), tokens.refreshToken, tokens.externalId)
+        : await tiktokRefresh(requireApp(config.integrations, 'tiktok'), tokens.refreshToken, tokens.externalId);
   saveTokens(scope, config, storeId, renewed);
   return renewed;
 }

@@ -33,8 +33,8 @@ function decode(content: Buffer): string {
 
 export function readCsv(content: Buffer): Table {
   const text = decode(content);
-  const firstLine = text.slice(0, text.search(/\r?\n/) === -1 ? text.length : text.search(/\r?\n/));
-  const count = (char: string) => firstLine.split(char).length - 1;
+  const head = text.split(/\r?\n/, 15);
+  const count = (char: string) => Math.max(...head.map((line) => line.split(char).length - 1));
   const delimiter = [';', '\t', ','].sort((a, b) => count(b) - count(a))[0];
 
   const rows: string[][] = [];
@@ -105,9 +105,15 @@ export function readXlsx(content: Buffer): Table {
   return splitHeader(rows);
 }
 
-/** O cabeçalho é a primeira linha com pelo menos duas células preenchidas (relatórios costumam ter título em cima). */
+/**
+ * O cabeçalho é a primeira linha "larga": com pelo menos duas células preenchidas e pelo menos
+ * metade das colunas da linha mais larga do início do arquivo. Isso pula linhas de título e
+ * de filtros que os relatórios trazem em cima da tabela.
+ */
 function splitHeader(rows: string[][]): Table {
-  const headerIndex = rows.findIndex((row) => row.filter((cell) => cell.trim() !== '').length >= 2);
+  const filled = (row: string[]) => row.filter((cell) => cell.trim() !== '').length;
+  const widest = Math.max(0, ...rows.slice(0, 30).map(filled));
+  const headerIndex = rows.findIndex((row) => filled(row) >= 2 && filled(row) >= widest / 2);
   if (headerIndex < 0) return { headers: [], rows: [] };
   const headers = rows[headerIndex];
   return { headers, rows: rows.slice(headerIndex + 1).map((row) => headers.map((_, index) => row[index] ?? '')) };

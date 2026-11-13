@@ -6,7 +6,8 @@ import { nowIso, type Db } from '../db';
 import { badRequest, forbidden, notFound } from '../errors';
 import { mlAuthorizeUrl, mlExchangeCode } from '../integrations/mercadolivre';
 import { shopeeAuthorizeUrl, shopeeExchangeCode } from '../integrations/shopee';
-import { requireApp, saveTokens, type LiveMarketplace } from '../integrations/tokens';
+import { tiktokAuthorizeUrl, tiktokExchangeCode } from '../integrations/tiktok';
+import { LIVE_MARKETPLACES, requireApp, saveTokens, type LiveMarketplace } from '../integrations/tokens';
 import { randomToken, sha256 } from '../security/crypto';
 
 const STATE_MINUTES = 10;
@@ -35,14 +36,16 @@ export async function oauthRoutes(
     const { id } = z.object({ id: z.string().uuid() }).parse(request.params);
     const store = scope.get<{ marketplace: string }>('SELECT marketplace FROM stores WHERE tenant_id = :tenantId AND id = :id', { id });
     if (!store) throw notFound('Loja não encontrada.');
-    if (store.marketplace !== 'mercadolivre' && store.marketplace !== 'shopee') {
-      throw badRequest('A conexão por OAuth está disponível para lojas do Mercado Livre e da Shopee.');
+    if (!LIVE_MARKETPLACES.includes(store.marketplace as LiveMarketplace)) {
+      throw badRequest('A conexão por API está disponível para lojas do Mercado Livre, da Shopee e do TikTok Shop.');
     }
     const marketplace = store.marketplace as LiveMarketplace;
     const state = randomToken();
     const url = marketplace === 'mercadolivre'
       ? mlAuthorizeUrl(requireApp(config.integrations, 'mercadolivre'), state)
-      : shopeeAuthorizeUrl(requireApp(config.integrations, 'shopee'), state);
+      : marketplace === 'shopee'
+        ? shopeeAuthorizeUrl(requireApp(config.integrations, 'shopee'), state)
+        : tiktokAuthorizeUrl(requireApp(config.integrations, 'tiktok'), state);
     scope.run(
       `INSERT INTO oauth_states (state_hash, tenant_id, store_id, user_id, marketplace, expires_at)
        VALUES (:hash, :tenantId, :storeId, :userId, :marketplace, :expiresAt)`,
@@ -54,8 +57,14 @@ export async function oauthRoutes(
   // Retorno do marketplace: navegação de topo do navegador, com o cookie de sessão do portal.
   app.get('/api/oauth/:marketplace/callback', { preHandler: requireAuth }, async (request, reply) => {
     const { scope, user } = request.auth!;
-    const { marketplace } = z.object({ marketplace: z.enum(['mercadolivre', 'shopee']) }).parse(request.params);
-    const query = z.object({ code: z.string().min(1).max(500), state: z.string().min(20).max(200), shop_id: z.string().regex(/^\d+$/).optional() }).parse(request.query);
+    const { marketplace } = z.object({ marketplace: z.enum(['mercadolivre', 'shopee', 'tiktok']) }).parse(request.params);
+    // O TikTok Shop devolve o código como `code` ou `auth_code`, conforme a versão do fluxo.
+    const raw = z
+      .object({ code: z.string().min(1).max(1000).optional(), auth_code: z.string().min(1).max(1000).optional(), state: z.string().min(20).max(200), shop_id: z.string().regex(/^\d+$/).optional() })
+      .parse(request.query);
+    const code = raw.code ?? raw.auth_code;
+    if (!code) throw badRequest('O marketplace não devolveu o código de autorização.');
+    const query = { ...raw, code };
 
     const hash = sha256(query.state);
     const pending = scope.get<{ store_id: string; user_id: string; marketplace: string; expires_at: string }>(
@@ -71,6 +80,8 @@ export async function oauthRoutes(
     let tokens;
     if (marketplace === 'mercadolivre') {
       tokens = await mlExchangeCode(requireApp(config.integrations, 'mercadolivre'), query.code);
+    } else if (marketplace === 'tiktok') {
+      tokens = await tiktokExchangeCode(requireApp(config.integrations, 'tiktok'), query.code);
     } else {
       if (!query.shop_id) throw badRequest('A Shopee não informou a loja autorizada.');
       tokens = await shopeeExchangeCode(requireApp(config.integrations, 'shopee'), query.code, query.shop_id);

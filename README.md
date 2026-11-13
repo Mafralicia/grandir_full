@@ -6,7 +6,7 @@ Nome, logotipo, textos, código e motores foram escritos do zero. A direção vi
 
 ## Como rodar
 
-Requer Node.js 22.13 ou superior.
+Requer Node.js 22.13 ou superior (desenvolvido no 24).
 
 ```bash
 npm install
@@ -15,10 +15,12 @@ npm run dev    # API em http://127.0.0.1:4000 e front-end em http://localhost:51
 
 Primeiro uso, com dados reais:
 
-1. Abra http://localhost:5173, crie sua conta e cadastre a loja (Mercado Livre ou Shopee). Ela começa vazia.
+1. Abra http://localhost:5173, crie sua conta e cadastre a loja (Mercado Livre, Shopee ou TikTok Shop). Ela começa vazia.
 2. Em **Lojas → Dados da loja**, envie o que você tiver: relatório de vendas e repasses exportado do painel do seller (CSV ou XLSX), planilha de produtos do ERP, XML de NF-e, e, se houver, relatórios de ocorrências, devoluções e recebimento de lotes.
 3. Para cada relatório, confira qual coluna do arquivo corresponde a cada informação. O mapeamento fica salvo para a próxima vez.
 4. A auditoria roda a cada importação. Veja o resultado em **Divergências** e abra os chamados em **Dossiês e chamados**.
+
+Sem relatório em mãos? `node scripts/gerar-relatorios-exemplo.mjs` grava em `data/exemplos` arquivos **sintéticos** (dados inventados, com erros plantados) para percorrer o fluxo inteiro; o `LEIA-ME.txt` da pasta diz a ordem de envio.
 
 A conexão direta por API (OAuth) é opcional e depende de cadastrar um aplicativo em cada marketplace: veja [docs/INTEGRACOES.md](docs/INTEGRACOES.md).
 
@@ -30,6 +32,7 @@ Outros comandos:
 | `npm run typecheck` | Checagem de tipos dos três pacotes |
 | `npm run build` | Build de produção do front-end |
 | `node scripts/real-flow-check.mjs . <pasta>` | Com o app rodando, cria uma conta de teste e percorre o caminho real pela interface (loja vazia → importação → auditoria) em 1440x900 |
+| `node scripts/gerar-relatorios-exemplo.mjs [pasta]` | Gera relatórios de exemplo sintéticos para testar a importação |
 | `npm run seed:demo` | Só com `GRANDIR_DEMO_MODE=true`: cria uma conta com dados **sintéticos**, para avaliar telas sem dados reais |
 | `node scripts/desktop-check.mjs . <pasta-de-saída>` | Com o app rodando, mede estouro de tabelas e captura as telas do portal em 1440x900 (Edge headless) |
 
@@ -56,22 +59,26 @@ docs               Análise pública e arquitetura
 - **Chamado por dossiê** — o dossiê vira um único chamado, cujo status (rascunho, aberto, em análise, deferido, indeferido, pago) vale para todas as divergências do grupo. Registra protocolo, data de abertura, valor contestado, valor deferido por item (deferimento parcial) e valor reembolsado; a taxa de sucesso incide só sobre os itens pagos.
 - **Tarifas versionadas** — tabelas de Mercado Livre e Shopee em `packages/engines/config/tarifas/*.json`, com `effectiveFrom`/`effectiveTo`; cada pedido é auditado com a versão vigente na data da venda.
 - **Dados reais por arquivo** — importa qualquer CSV ou XLSX exportado do painel do seller: o sistema lê os cabeçalhos, sugere o mapeamento e você confirma qual coluna é qual. Cobre vendas e repasses, extravios e avarias, devoluções e recebimento de lotes. Nenhum dado é gerado: loja sem importação fica vazia.
-- **Contas reais por OAuth** — autorização OAuth 2.0 com Mercado Livre e Shopee, tokens cifrados e renovados automaticamente, clientes HTTP com limite de taxa e nova tentativa.
+- **Contas reais por OAuth** — autorização OAuth 2.0 com Mercado Livre, Shopee e TikTok Shop, tokens cifrados e renovados automaticamente, clientes HTTP com limite de taxa e nova tentativa.
 - **XML de NF-e** — importação em lote de NF-e modelo 55 (chave de acesso, CFOP, itens, pesos e valores fiscais), independente do ERP.
 - **Dossiês de evidência** — agrupa as divergências por tipo e por lote de envio ou mês e gera, para cada grupo, o texto pronto para o chamado, a planilha (CSV e XLSX) e o PDF com identificadores, memória de cálculo e cronologia.
 - **Planilha do ERP** — importa o cadastro de produtos exportado do Bling, Tiny ou Omie (CSV); peso, medidas e custo do ERP passam a ser a referência da auditoria.
 - **Gestão de chamados** — ciclo de vida completo (envio, análise, pedido de documentos, aprovação, negativa, reabertura, pagamento), linha do tempo, comentários e anexos.
 - **Cobrança por sucesso** — fatura mensal em que cada linha aponta para o reembolso que a originou.
+- **TikTok Shop** — extravio sem crédito, repasse a menor e devoluções, por arquivo ou com os pedidos vindos da API.
+- **Sincronização agendada e prazos** — com `SYNC_INTERVAL_HOURS`, as lojas conectadas são auditadas periodicamente; o painel destaca divergências com prazo de contestação a vencer.
+- **Documentos por regra** — cada chamado lista o que anexar conforme o tipo de divergência.
+- **Portabilidade (LGPD)** — o titular exporta todos os dados da conta em JSON, sem segredos.
 - **Conta e equipe** — papéis (titular, administrador, analista, leitor), convites, verificação em duas etapas e trilha de auditoria.
 
-Detalhes de arquitetura e segurança: [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+Detalhes de arquitetura e segurança: [docs/ARQUITETURA.md](docs/ARQUITETURA.md). Situação de cada item do roteiro: [docs/STATUS-DOS-PROMPTS.md](docs/STATUS-DOS-PROMPTS.md).
 
 ## O que ainda não está pronto para produção
 
 Estes pontos são limites reais do estado atual, não detalhes de configuração:
 
-1. **O importador de relatórios não foi testado com um relatório real.** Ele não depende do formato (você mapeia as colunas), mas foi exercitado só com arquivos que eu montei. Relatórios com várias linhas por pedido, totais no rodapé ou valores em formato inesperado podem exigir ajuste. As sugestões automáticas de coluna usam nomes que eu supus.
-2. **Integrações por API não testadas contra as APIs de verdade.** O OAuth e os clientes de Mercado Livre e Shopee foram escritos pela documentação pública e exercitados apenas com respostas simuladas. Nomes de campos, rotas e o host da Shopee precisam ser conferidos na primeira conexão com um aplicativo registrado (`ML_CLIENT_ID`, `SHOPEE_PARTNER_ID` etc. no `.env`). A coleta real ainda não traz conferência de lotes no centro de distribuição, detalhe de devoluções nem o relatório de liberações do Mercado Pago; as regras que dependem desses dados não disparam para lojas conectadas. Extravios vêm do status do envio, sem saber se já houve indenização. Integração direta com APIs de ERP não existe: a entrada é por planilha e XML.
+1. **O importador de relatórios não foi testado com um relatório real.** Ele não depende do formato (você mapeia as colunas), mas foi exercitado só com arquivos sintéticos. As sugestões automáticas de coluna usam cabeçalhos encontrados em fontes públicas de terceiros ([docs/pesquisa/formatos-de-relatorios.md](docs/pesquisa/formatos-de-relatorios.md)), não confirmados em um arquivo real. Totais no rodapé ou valores em formato inesperado podem exigir ajuste.
+2. **Integrações por API não testadas contra as APIs de verdade.** O OAuth e os clientes de Mercado Livre, Shopee e TikTok Shop foram escritos pela documentação pública e exercitados apenas com respostas simuladas. Nomes de campos, rotas e o host da Shopee precisam ser conferidos na primeira conexão com um aplicativo registrado (`ML_CLIENT_ID`, `SHOPEE_PARTNER_ID` etc. no `.env`). A coleta real ainda não traz conferência de lotes no centro de distribuição, detalhe de devoluções nem o relatório de liberações do Mercado Pago; as regras que dependem desses dados não disparam para lojas conectadas. Extravios vêm do status do envio, sem saber se já houve indenização. Integração direta com APIs de ERP não existe: a entrada é por planilha e XML.
 2. **Envio de e-mail.** Links de redefinição de senha e convites são escritos no log da API. Falta o adaptador de um provedor transacional (`apps/api/src/mailer.ts`).
 3. **Recebimento das faturas.** As faturas são calculadas, mas não há integração com meio de pagamento.
 4. **Banco de dados.** Usa SQLite embutido (`node:sqlite`, ainda marcado como experimental no Node 22). Para produção, migrar para PostgreSQL com Row-Level Security como segunda barreira de isolamento.

@@ -1,4 +1,4 @@
-# Integrações: Mercado Livre e Shopee
+# Integrações: Mercado Livre, Shopee e TikTok Shop
 
 Guia para registrar os aplicativos da Grandir nos dois marketplaces e ligar o OAuth 2.0 que o back-end já implementa. Escrito em novembro de 2026.
 
@@ -206,7 +206,46 @@ Situação em 12/11/2026: os itens 1, 3 e a parte de reconexão do item 8 já fo
 5. **Busca de reclamações do Mercado Livre.** `mercadolivre.ts` envia `date_created.from` e `sort=date_created:asc`. A referência oficial, publicada no site do Mercado Pago, documenta `id`, `type`, `stage`, `status`, `resource`, `resource_id`, `date_created` (valor exato) e `limit`. Um resumo da página "Manage Claims" cita intervalo de datas via `range=date_created:after:...:before:...` e ordenação `date_asc` ou `date_desc`. Os parâmetros do código provavelmente são ignorados ou rejeitados. O impacto hoje é nulo, porque `liveSources.ts` ainda não chama `claims`. Link: https://www.mercadopago.com.ar/developers/en/reference/claims/search-claims/get
 6. **Peso do envio no Mercado Livre.** `liveSources.ts` lê `shipment.dimensions.weight` de `/shipments/{id}`. A documentação de envios mostra dimensões e peso por item em `/shipments/{id}/items`. Se o campo não existir no envio, `billedWeightG` fica 0 e as regras de peso não disparam (não confirmado na documentação oficial; verifique na primeira conexão real).
 7. **Validade do `code` da Shopee.** Os PDFs oficiais citam 5 minutos e também 10 minutos. O `state` do código dura 10 minutos. Não há conflito prático, mas um login lento na Shopee pode expirar o `code` antes do `state`.
-8. **Renovação só sob demanda.** `tokens.ts` renova o token apenas quando uma auditoria pede. A documentação dá 30 dias de validade ao refresh token da Shopee e 6 meses ao do Mercado Livre. Lojas paradas por mais tempo perdem o acesso e precisam usar "Reconectar conta" (já disponível na tela). Uma renovação agendada ainda não existe.
+8. **Renovação sob demanda e na sincronização agendada.** Com `SYNC_INTERVAL_HOURS` definido, as lojas conectadas são sincronizadas periodicamente, o que renova os tokens. `tokens.ts` renova o token apenas quando uma auditoria pede. A documentação dá 30 dias de validade ao refresh token da Shopee e 6 meses ao do Mercado Livre. Lojas paradas por mais tempo perdem o acesso e precisam usar "Reconectar conta" (já disponível na tela). Uma renovação agendada ainda não existe.
+
+## 9. TikTok Shop
+
+Escrito pela prática dos SDKs abertos; **nenhuma chamada real foi feita**. Detalhes e fontes em [pesquisa/apis-oficiais.md](pesquisa/apis-oficiais.md).
+
+### 9.1 O que o código chama (`apps/api/src/integrations/tiktok.ts`)
+
+| Passo | Chamada |
+|---|---|
+| Autorização | `<TIKTOK_AUTH_HOST>/open/authorize?service_id=...&state=...` |
+| Troca do código | `GET <TIKTOK_TOKEN_HOST>/api/v2/token/get` (`grant_type=authorized_code`) |
+| Renovação | `GET <TIKTOK_TOKEN_HOST>/api/v2/token/refresh` |
+| Lojas autorizadas | `GET <TIKTOK_API_HOST>/authorization/202309/shops` — de onde vem o `shop_cipher` |
+| Pedidos | `POST <TIKTOK_API_HOST>/order/202309/orders/search` |
+
+As chamadas vão assinadas com HMAC-SHA256 e levam o token no cabeçalho `x-tts-access-token`. O extrato financeiro não vem pela API: envie-o em **Dados da loja**, e a auditoria cruza com os pedidos por pedido + SKU.
+
+### 9.2 Criar o aplicativo
+
+1. Cadastre-se no TikTok Shop Partner Center (partner.tiktokshop.com) como desenvolvedor, com a empresa no Brasil.
+2. Crie um app e, nele, um serviço. Anote **App Key**, **App Secret** e o **Service ID**.
+3. Como URL de redirecionamento, informe `<OAUTH_REDIRECT_BASE>/api/oauth/tiktok/callback`.
+4. Peça os escopos de leitura de pedidos e de informações da loja. Escopos financeiros podem exigir revisão (não confirmado na documentação oficial).
+
+### 9.3 .env
+
+```
+TIKTOK_APP_KEY=
+TIKTOK_APP_SECRET=
+TIKTOK_SERVICE_ID=
+# Só mude se o Partner Center indicar outros hosts para o Brasil:
+# TIKTOK_AUTH_HOST=https://services.tiktokshop.com
+# TIKTOK_TOKEN_HOST=https://auth.tiktok-shops.com
+# TIKTOK_API_HOST=https://open-api.tiktokglobalshop.com
+```
+
+### 9.4 Testar
+
+Reinicie a API, cadastre uma loja do TikTok Shop e clique em "Conectar conta". Na primeira conexão real, confira: a URL de autorização do Brasil, a ordem da assinatura (um erro de assinatura aparece como código de erro na resposta) e os campos de `orders/search`.
 
 ## Fontes
 

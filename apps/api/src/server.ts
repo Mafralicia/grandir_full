@@ -109,7 +109,7 @@ export async function buildApp(options: { config: Config; db: Db; mailer?: Maile
   await oauthRoutes(app, { db, config, requireAuth });
   await importRoutes(app, { db, config, requireAuth });
   await accountRoutes(app, { db, requireAuth });
-  app.get('/api/meta', async () => ({ demoMode: config.demoMode, oauth: { mercadolivre: config.integrations.mercadolivre !== null, shopee: config.integrations.shopee !== null } }));
+  app.get('/api/meta', async () => ({ demoMode: config.demoMode, oauth: { mercadolivre: config.integrations.mercadolivre !== null, shopee: config.integrations.shopee !== null, tiktok: config.integrations.tiktok !== null } }));
 
   return app;
 }

@@ -56,7 +56,7 @@ describe('leitura de arquivos', () => {
 
 describe('conversão e mapeamento', () => {
   it('entende dinheiro e datas nos formatos usuais', () => {
-    assert.deepEqual(['R$ 1.234,56', '-15,00', '1234.5', '12', ''].map(parseMoney), [123_456, 1_500, 123_450, 1_200, null]);
+    assert.deepEqual(['R$ 1.234,56', '-15,00', '1234.5', '12', '', '1,234.56'].map(parseMoney), [123_456, 1_500, 123_450, 1_200, null, 123_456]);
     assert.equal(parseDate('05/10/2026 14:30'), '2026-10-05T17:30:00.000Z');
     assert.equal(parseDate('2026-10-05'), '2026-10-05T15:00:00.000Z');
     assert.equal(parseDate('46300')?.slice(0, 10), '2026-10-05');
@@ -204,5 +204,53 @@ describe('aplicação com dados reais (modo de demonstração desligado)', () =>
     assert.match(missing.json().error.message, /Mapeie as colunas obrigatórias/);
     assert.equal((await get(other, `/api/stores/${storeId}/imports`)).statusCode, 404);
     assert.equal((await send(other, 'PUT', importUrl('orders'), report())).statusCode, 404);
+  });
+});
+
+describe('arquivos de exemplo percorrem o importador com o mapeamento sugerido', () => {
+  it('gera os exemplos, importa tudo pela API e a auditoria encontra os erros plantados', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const dir = mkdtempSync(join(tmpdir(), 'grandir-exemplos-'));
+    execFileSync(process.execPath, [join(import.meta.dirname, '../../../scripts/gerar-relatorios-exemplo.mjs'), dir]);
+
+    const db = openDb(':memory:');
+    const app = await buildApp({ config: loadConfig({ NODE_ENV: 'test', UPLOAD_DIR: mkdtempSync(join(tmpdir(), 'grandir-test-')) }), db, mailer: { send: async () => undefined } });
+    const signup = await app.inject({
+      method: 'POST', url: '/api/auth/signup',
+      payload: { firstName: 'Ana', lastName: 'Lima', phone: '+55 11 98888-7777', companyName: 'Exemplos', isAgency: false, country: 'BR', revenueBand: '1M_3M', email: 'exemplos@exemplo.test', password: 'Senha-Forte-2026!', acceptTerms: true },
+    });
+    const auth = { cookie: String(signup.headers['set-cookie']).split(';')[0], 'x-csrf-token': signup.json().csrfToken as string };
+    const storeId = (await app.inject({ method: 'POST', url: '/api/stores', payload: { name: 'Loja', marketplace: 'mercadolivre', region: 'BR' }, headers: auth })).json().id;
+
+    const erp = await app.inject({ method: 'PUT', url: `/api/stores/${storeId}/erp-products`, payload: readFileSync(join(dir, 'produtos-erp.csv'), 'utf8'), headers: { ...auth, 'content-type': 'text/csv' } });
+    assert.equal(erp.json().imported, 5, erp.body);
+    const files = readdirSync(join(dir, 'nfe')).map((name) => ({ name, xml: readFileSync(join(dir, 'nfe', name), 'utf8') }));
+    const nfe = await app.inject({ method: 'PUT', url: `/api/stores/${storeId}/nfe`, payload: { files }, headers: auth });
+    assert.deepEqual([nfe.json().imported, nfe.json().byKind, nfe.json().errors], [3, { REMESSA: 3 }, []], nfe.body);
+
+    for (const [kind, file] of [['receipts', 'recebimento-de-lotes.csv'], ['orders', 'vendas-e-repasses.csv'], ['incidents', 'extravios-e-avarias.csv'], ['returns', 'devolucoes.csv']]) {
+      const body = readFileSync(join(dir, file));
+      const headers = { ...auth, 'content-type': 'application/octet-stream' };
+      const preview = (await app.inject({ method: 'POST', url: `/api/stores/${storeId}/imports/${kind}/preview?filename=${file}`, payload: body, headers })).json();
+      // Só o que o sistema sugeriu sozinho: nenhum ajuste manual de coluna.
+      const mapping = Object.fromEntries(Object.entries(preview.suggested).filter(([, header]) => header));
+      const result = await app.inject({ method: 'PUT', url: `/api/stores/${storeId}/imports/${kind}?filename=${file}&mapping=${encodeURIComponent(JSON.stringify(mapping))}`, payload: body, headers });
+      assert.equal(result.statusCode, 200, `${file}: ${result.body}`);
+      assert.deepEqual([result.json().imported, result.json().errors], [preview.totalRows, []], file);
+    }
+
+    const { discrepancies } = (await app.inject({ method: 'GET', url: '/api/discrepancies', headers: auth })).json();
+    const byType: Record<string, number> = {};
+    for (const d of discrepancies) byType[d.type] = (byType[d.type] ?? 0) + 1;
+    assert.equal(byType.ML_COMMISSION_OVERCHARGE, 6, JSON.stringify(byType));
+    assert.equal(byType.ERP_INBOUND_GAP, 2);
+    assert.equal(byType.ML_RETURN_NOT_RESTOCKED, 1);
+    assert.equal(byType.ML_RETURN_DAMAGED, 1);
+    assert.equal(byType.ML_WAREHOUSE_DAMAGE, 1);
+    const gap = discrepancies.find((d: { type: string; referenceId: string }) => d.type === 'ERP_INBOUND_GAP' && d.referenceId === 'INB-000903');
+    assert.deepEqual([gap.quantity, gap.estimatedValueCents], [9, 80_100]);
+    await app.close();
+    db.close();
   });
 });
